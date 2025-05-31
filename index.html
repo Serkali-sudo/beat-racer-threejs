@@ -2,8 +2,11 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <title>Beat Racer 3D - Discovery Car v4.2 (Denser City)</title> <!-- Updated Title -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, minimum-scale=1.0, maximum-scale=1.0">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <title>Beat Racer 3D - Discovery Car v4.2 (Mobile Optimized)</title>
     <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
     <script type="importmap">
     {
@@ -15,8 +18,37 @@
     </script>
 
     <style>
-        body { margin: 0; overflow: hidden; background-color: #111; color: #fff; font-family: 'Press Start 2P', cursive; display: flex; justify-content: center; align-items: center; height: 100vh; flex-direction: column; }
-        #gameCanvas { display: block; width: 100%; max-width: 450px; height: 80%; background-color: #000; touch-action: none; cursor: pointer; }
+        body { 
+            margin: 0; 
+            overflow: hidden; 
+            background-color: #111; 
+            color: #fff; 
+            font-family: 'Press Start 2P', cursive; 
+            display: flex; 
+            justify-content: center; 
+            align-items: center; 
+            height: 100vh; 
+            flex-direction: column;
+            -webkit-tap-highlight-color: transparent;
+            -webkit-touch-callout: none;
+            -webkit-user-select: none;
+            -moz-user-select: none;
+            -ms-user-select: none;
+            user-select: none;
+        }
+        #gameCanvas { 
+            display: block; 
+            width: 100%; 
+            max-width: 450px; 
+            height: 80%; 
+            background-color: #000; 
+            touch-action: none; 
+            cursor: pointer;
+            image-rendering: optimizeSpeed;
+            image-rendering: -moz-crisp-edges;
+            image-rendering: -webkit-optimize-contrast;
+            image-rendering: optimize-contrast;
+        }
         #uiContainer { position: absolute; top: 10px; left: 10px; right: 10px; margin: 0 auto; display: flex; justify-content: space-between; align-items: center; z-index: 10; pointer-events: none; }
         #score { font-size: 1.2em; color: #0f0; text-align: left; }
         #perfectionPhase { font-size: 1em; color: #fff; text-align: center; margin: 0 10px; opacity: 0; transition: opacity 0.3s ease-in-out; }
@@ -34,6 +66,14 @@
         #messageBox { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); background-color: rgba(0, 0, 0, 0.85); color: #fff; padding: 30px; border-radius: 15px; text-align: center; font-size: 1.2em; display: none; z-index: 20; border: 2px solid #0f0; pointer-events: auto; }
         #messageBox button { font-family: 'Press Start 2P', cursive; font-size: 1em; padding: 10px 20px; margin-top: 20px; background-color: #0f0; color: #000; border: none; border-radius: 8px; cursor: pointer; box-shadow: 0 4px #0a0; transition: background-color 0.2s, transform 0.1s; }
         #messageBox button:active { background-color: #0c0; transform: translateY(2px); box-shadow: 0 2px #0a0; }
+        
+        /* Mobile optimizations */
+        @media (max-width: 768px) {
+            #score { font-size: 1em; }
+            #perfectionPhase { font-size: 0.9em; }
+            #messageBox { font-size: 1em; padding: 20px; }
+            #boostMeterContainer, #magnetTimerContainer { width: 80px; }
+        }
     </style>
 </head>
 <body>
