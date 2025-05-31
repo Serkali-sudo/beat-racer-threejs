@@ -17,7 +17,8 @@ async function init() {
         perfectionPhaseElement: document.getElementById('perfectionPhase'),
         magnetTimerContainer: document.getElementById('magnetTimerContainer'),
         magnetTimerFill: document.getElementById('magnetTimerFill'),
-        magnetText: document.getElementById('magnetText')
+        magnetText: document.getElementById('magnetText'),
+        fpsDisplayElement: document.getElementById('fpsDisplay')
     });
 
     GameState.initThreeJS(); // Sets up scene, camera, renderer
@@ -79,6 +80,8 @@ async function init() {
 
 // Delta time tracking
 let lastTime = 0;
+let frameCounter = 0;
+let lastFPSTime = 0;
 
 function animate(currentTime = 0) {
     requestAnimationFrame(animate);
@@ -86,6 +89,15 @@ function animate(currentTime = 0) {
     // Calculate delta time in seconds
     const deltaTime = (currentTime - lastTime) / 1000;
     lastTime = currentTime;
+    
+    // FPS calculation
+    frameCounter++;
+    if (currentTime - lastFPSTime >= 1000) { // Update FPS every second
+        const fps = Math.round(frameCounter / ((currentTime - lastFPSTime) / 1000));
+        UI.updateFPSDisplay(fps);
+        frameCounter = 0;
+        lastFPSTime = currentTime;
+    }
     
     // Cap delta time to prevent large jumps (e.g., when tab is inactive)
     const cappedDeltaTime = Math.min(deltaTime, 1/30); // Cap at 30 FPS minimum

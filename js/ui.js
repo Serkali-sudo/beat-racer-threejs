@@ -288,4 +288,10 @@ export function createMusicSelectionUI(musicList) {
     } else {
         console.error("createMusicSelectionUI: GameState.messageBox is not defined!");
     }
+}
+
+export function updateFPSDisplay(fps) {
+    if (GameState.fpsDisplayElement) {
+        GameState.fpsDisplayElement.textContent = `FPS: ${fps}`;
+    }
 } 

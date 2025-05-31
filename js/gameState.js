@@ -18,7 +18,6 @@ export let gameSpeed = 0.15;
 export let score = 0;
 export let gameState = 'initial'; // initial, playing, gameOver
 export let frameCount = 0; // Frame counter for debugging and timing
-export let lastDeltaTime = 1/60; // Track deltaTime for performance adaptation
 
 // --- Car State ---
 export let currentLane = 1;
@@ -44,7 +43,7 @@ export let currentDrillChaseDistance = 0; // Added for dynamic chase distance
 export let touchStartX = 0, touchStartY = 0, touchEndX = 0, touchEndY = 0;
 
 // --- DOM Elements (initialized in main.js or ui.js) ---
-export let canvas, scoreElement, boostMeterFillElement, messageBox, messageText, actionButton, perfectionPhaseElement, magnetTimerContainer, magnetTimerFill, magnetText;
+export let canvas, scoreElement, boostMeterFillElement, messageBox, messageText, actionButton, perfectionPhaseElement, magnetTimerContainer, magnetTimerFill, magnetText, fpsDisplayElement;
 
 export function setDomElements(elements) {
     canvas = elements.canvas;
@@ -57,6 +56,7 @@ export function setDomElements(elements) {
     magnetTimerContainer = elements.magnetTimerContainer;
     magnetTimerFill = elements.magnetTimerFill;
     magnetText = elements.magnetText;
+    fpsDisplayElement = elements.fpsDisplayElement;
 }
 
 // --- Game Timers ---
@@ -109,7 +109,8 @@ export function getGameState() {
         perfectionBurstTimer,
         magnetActive,
         magnetTimer,
-        magnetCollectables
+        magnetCollectables,
+        fpsDisplayElement
     };
 }
 
@@ -202,6 +203,7 @@ export function setGameState(newState) {
     magnetActive = newState.magnetActive || false;
     magnetTimer = newState.magnetTimer || 0;
     magnetCollectables = newState.magnetCollectables || [];
+    fpsDisplayElement = newState.fpsDisplayElement || null;
 }
 
 export function resetGameTimers() {
@@ -248,7 +250,7 @@ export function resetScore() {
 }
 
 export function incrementFrameCount() {
-    frameCount++;
+    frameCount++; // Keep for debugging only, not for timing
 }
 
 export function incrementJumpTimer(deltaTime = 1/60) {
@@ -821,8 +823,4 @@ export function resetMagnetState() {
         }
     });
     magnetCollectables = [];
-}
-
-export function setLastDeltaTime(deltaTime) {
-    lastDeltaTime = deltaTime;
 }

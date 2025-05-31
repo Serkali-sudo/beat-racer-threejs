@@ -19,6 +19,7 @@
         #gameCanvas { display: block; width: 100%; max-width: 450px; height: 80%; background-color: #000; touch-action: none; cursor: pointer; }
         #uiContainer { position: absolute; top: 10px; left: 10px; right: 10px; margin: 0 auto; display: flex; justify-content: space-between; align-items: center; z-index: 10; pointer-events: none; }
         #score { font-size: 1.2em; color: #0f0; text-align: left; }
+        #fpsDisplay { font-size: 1.0em; color: #0f0; text-align: left; margin-top: 5px; }
         #perfectionPhase { font-size: 1em; color: #fff; text-align: center; margin: 0 10px; opacity: 0; transition: opacity 0.3s ease-in-out; }
         #perfectionPhase.phase1 { color: #00ffaa; opacity: 1; text-shadow: 0 0 5px #00ffaa; }
         #perfectionPhase.phase2 { color: #ff6600; opacity: 1; text-shadow: 0 0 5px #ff6600; }
@@ -39,6 +40,7 @@
 <body>
     <div id="uiContainer">
         <div id="score">Score: 0</div>
+        <div id="fpsDisplay">FPS: 0</div>
         <div id="perfectionPhase">Phase: 1</div>
         <div id="rightUIGroup">
             <div id="boostMeterContainer">
