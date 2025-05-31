@@ -718,20 +718,20 @@ function updateScenerySpawning(deltaTime = 1/60) {
     const targetGenerationEndZ = currentHorizonZ - generationDepthBeyondHorizon;
 
     // Building Spawning (existing logic)
-    // while (GameState.lastBuildingSpawnZ > targetGenerationEndZ && GameState.buildings.length < Constants.MAX_ACTIVE_BUILDINGS) {
-    //     const newChunkBaseZ = GameState.lastBuildingSpawnZ - (Math.random() * 3);
-    //     createBuilding(newChunkBaseZ, true);
-    //     createBuilding(newChunkBaseZ, false);
-    //     if (Math.random() < 0.85) {
-    //         createBuilding(newChunkBaseZ - Constants.BUILDING_SPAWN_CHUNK_Z * (0.2 + Math.random() * 0.3), true);
-    //         createBuilding(newChunkBaseZ - Constants.BUILDING_SPAWN_CHUNK_Z * (0.2 + Math.random() * 0.3), false);
-    //     }
-    //     if (Math.random() < 0.6) {
-    //         createBuilding(newChunkBaseZ - Constants.BUILDING_SPAWN_CHUNK_Z * (0.5 + Math.random() * 0.3), true);
-    //         createBuilding(newChunkBaseZ - Constants.BUILDING_SPAWN_CHUNK_Z * (0.5 + Math.random() * 0.3), false);
-    //     }
-    //     GameState.setLastBuildingSpawnZ(newChunkBaseZ - Constants.BUILDING_SPAWN_CHUNK_Z);
-    // }
+    while (GameState.lastBuildingSpawnZ > targetGenerationEndZ && GameState.buildings.length < Constants.MAX_ACTIVE_BUILDINGS) {
+        const newChunkBaseZ = GameState.lastBuildingSpawnZ - (Math.random() * 3);
+        createBuilding(newChunkBaseZ, true);
+        createBuilding(newChunkBaseZ, false);
+        if (Math.random() < 0.85) {
+            createBuilding(newChunkBaseZ - Constants.BUILDING_SPAWN_CHUNK_Z * (0.2 + Math.random() * 0.3), true);
+            createBuilding(newChunkBaseZ - Constants.BUILDING_SPAWN_CHUNK_Z * (0.2 + Math.random() * 0.3), false);
+        }
+        if (Math.random() < 0.6) {
+            createBuilding(newChunkBaseZ - Constants.BUILDING_SPAWN_CHUNK_Z * (0.5 + Math.random() * 0.3), true);
+            createBuilding(newChunkBaseZ - Constants.BUILDING_SPAWN_CHUNK_Z * (0.5 + Math.random() * 0.3), false);
+        }
+        GameState.setLastBuildingSpawnZ(newChunkBaseZ - Constants.BUILDING_SPAWN_CHUNK_Z);
+    }
 
     // Streetlight Spawning - Timer-based like pedestrians
     GameState.incrementStreetLightSpawnTimer(deltaTime);
@@ -929,62 +929,62 @@ export function updateGame(deltaTime = 1/60) {
     }
 
     // Move and recycle buildings
-    // for (let i = GameState.buildings.length - 1; i >= 0; i--) {
-    //     const building = GameState.buildings[i];
-    //     building.position.z += effectiveGameSpeed * 60.0 * deltaTime;
+    for (let i = GameState.buildings.length - 1; i >= 0; i--) {
+        const building = GameState.buildings[i];
+        building.position.z += effectiveGameSpeed * 60.0 * deltaTime;
 
-    //     // --- Building Beat Animation --- 
-    //     if (analyser && building.userData.originalY !== undefined) {
-    //         const data = analyser.getFrequencyData(); 
-    //         let lowerFreqAvg = 0;
-    //         const lowerBandCount = Math.floor(data.length * Constants.MUSIC_LOWER_BAND_RATIO);
-    //         for (let j = 0; j < lowerBandCount; j++) {
-    //             lowerFreqAvg += data[j];
-    //         }
-    //         lowerFreqAvg /= (lowerBandCount || 1); 
+        // --- Building Beat Animation --- 
+        if (analyser && building.userData.originalY !== undefined) {
+            const data = analyser.getFrequencyData(); 
+            let lowerFreqAvg = 0;
+            const lowerBandCount = Math.floor(data.length * Constants.MUSIC_LOWER_BAND_RATIO);
+            for (let j = 0; j < lowerBandCount; j++) {
+                lowerFreqAvg += data[j];
+            }
+            lowerFreqAvg /= (lowerBandCount || 1); 
 
-    //         // Using the same TUNING AREA parameters as obstacles
-    //         const normalizedBeat = Math.min(1, Math.max(0, (lowerFreqAvg - Constants.MUSIC_BEAT_THRESHOLD) / Constants.MUSIC_BEAT_SENSITIVITY));
+            // Using the same TUNING AREA parameters as obstacles
+            const normalizedBeat = Math.min(1, Math.max(0, (lowerFreqAvg - Constants.MUSIC_BEAT_THRESHOLD) / Constants.MUSIC_BEAT_SENSITIVITY));
             
-    //         // Use building's actual height for jump scale, if available
-    //         const buildingHeight = building.geometry.parameters.height || 10; // Fallback height
-    //         const targetJumpHeight = buildingHeight * Constants.BUILDING_BEAT_JUMP_FACTOR * normalizedBeat; 
-    //         const targetY = building.userData.originalY + targetJumpHeight;
+            // Use building's actual height for jump scale, if available
+            const buildingHeight = building.geometry.parameters.height || 10; // Fallback height
+            const targetJumpHeight = buildingHeight * Constants.BUILDING_BEAT_JUMP_FACTOR * normalizedBeat; 
+            const targetY = building.userData.originalY + targetJumpHeight;
             
-    //         const musicSmoothingFactor = Constants.MUSIC_SMOOTHING_FACTOR;
-    //         const adjustedMusicSmoothing = 1.0 - Math.pow(1.0 - musicSmoothingFactor, 60.0 * deltaTime);
-    //         building.position.y += (targetY - building.position.y) * adjustedMusicSmoothing;
-    //     }
-    //     // --- End Building Beat Animation ---
+            const musicSmoothingFactor = Constants.MUSIC_SMOOTHING_FACTOR;
+            const adjustedMusicSmoothing = 1.0 - Math.pow(1.0 - musicSmoothingFactor, 60.0 * deltaTime);
+            building.position.y += (targetY - building.position.y) * adjustedMusicSmoothing;
+        }
+        // --- End Building Beat Animation ---
 
-    //     // Check if 'depth' parameter exists, otherwise use a fallback or skip disposal for this dimension
-    //     const buildingDepth = building.geometry.parameters.depth || (building.geometry.parameters.radiusBottom * 2) || 2; // Fallback for Cylinder
+        // Check if 'depth' parameter exists, otherwise use a fallback or skip disposal for this dimension
+        const buildingDepth = building.geometry.parameters.depth || (building.geometry.parameters.radiusBottom * 2) || 2; // Fallback for Cylinder
 
-    //     if (building.position.z - buildingDepth / 2 > GameState.camera.position.z + Constants.ROAD_RECYCLE_POINT_OFFSET + Constants.BUILDING_RECYCLE_EXTRA_OFFSET) {
-    //         GameState.scene.remove(building);
-    //         if (building.geometry) building.geometry.dispose();
-    //         if (building.userData.windowTexture) building.userData.windowTexture.dispose(); // Dispose texture
+        if (building.position.z - buildingDepth / 2 > GameState.camera.position.z + Constants.ROAD_RECYCLE_POINT_OFFSET + Constants.BUILDING_RECYCLE_EXTRA_OFFSET) {
+            GameState.scene.remove(building);
+            if (building.geometry) building.geometry.dispose();
+            if (building.userData.windowTexture) building.userData.windowTexture.dispose(); // Dispose texture
             
-    //         // Dispose materials of building and its children (signs)
-    //         building.traverse(object => {
-    //             if (object.isMesh && object.material) {
-    //                 if (Array.isArray(object.material)) {
-    //                     object.material.forEach(m => {
-    //                         if (m.map) m.map.dispose();
-    //                         if (m.emissiveMap) m.emissiveMap.dispose();
-    //                         m.dispose();
-    //                     });
-    //                 } else {
-    //                     if (object.material.map) object.material.map.dispose();
-    //                     if (object.material.emissiveMap) object.material.emissiveMap.dispose();
-    //                     object.material.dispose();
-    //                 }
-    //             }
-    //         });
-    //         GameState.removeBuilding(i);
-    //     }
-    // }
-    // GameState.updateLastBuildingSpawnZ(effectiveGameSpeed);
+            // Dispose materials of building and its children (signs)
+            building.traverse(object => {
+                if (object.isMesh && object.material) {
+                    if (Array.isArray(object.material)) {
+                        object.material.forEach(m => {
+                            if (m.map) m.map.dispose();
+                            if (m.emissiveMap) m.emissiveMap.dispose();
+                            m.dispose();
+                        });
+                    } else {
+                        if (object.material.map) object.material.map.dispose();
+                        if (object.material.emissiveMap) object.material.emissiveMap.dispose();
+                        object.material.dispose();
+                    }
+                }
+            });
+            GameState.removeBuilding(i);
+        }
+    }
+    GameState.updateLastBuildingSpawnZ(effectiveGameSpeed);
 
     // Move and recycle streetlights
     for (let i = GameState.streetLights.length - 1; i >= 0; i--) {
@@ -1012,7 +1012,7 @@ export function updateGame(deltaTime = 1/60) {
     updatePedestrians(effectiveGameSpeed, deltaTime);
 
     // Spawn obstacles and collectables based on timers and game speed
-    const speedFactor = Math.max(0.5, effectiveGameSpeed / 0.15 );
+    const speedFactor = Math.max(0.5, (effectiveGameSpeed * 60.0 * deltaTime) / (0.15 * 60.0 * deltaTime) ); // Normalize effectiveGameSpeed relative to base 0.15
     const speedAdjustedObstacleInterval = Constants.OBSTACLE_SPAWN_INTERVAL / speedFactor;
     const speedAdjustedCollectableInterval = Constants.COLLECTABLE_SPAWN_INTERVAL / speedFactor;
     
@@ -1404,26 +1404,26 @@ export function startGame() {
     }
 
     // Pre-populate buildings
-    // const initialCameraZ = GameState.carGroup.position.z + Constants.CAMERA_DISTANCE_BEHIND;
-    // const spawnHorizonForPrePop = initialCameraZ + Constants.SPAWN_Z_OFFSET;
-    // let currentFurthestPopulatedBuildingZ = spawnHorizonForPrePop;
-    // const totalPopulateDepth = Constants.ROAD_LENGTH + Math.abs(Constants.SPAWN_Z_OFFSET) + 30;
+    const initialCameraZ = GameState.carGroup.position.z + Constants.CAMERA_DISTANCE_BEHIND;
+    const spawnHorizonForPrePop = initialCameraZ + Constants.SPAWN_Z_OFFSET;
+    let currentFurthestPopulatedBuildingZ = spawnHorizonForPrePop;
+    const totalPopulateDepth = Constants.ROAD_LENGTH + Math.abs(Constants.SPAWN_Z_OFFSET) + 30;
 
-    // for (let zOffset = 0; zOffset < totalPopulateDepth; zOffset += Constants.BUILDING_SPAWN_CHUNK_Z) {
-    //     const chunkBaseZ = spawnHorizonForPrePop - zOffset;
-    //     createBuilding(chunkBaseZ - Math.random() * (Constants.BUILDING_SPAWN_CHUNK_Z * 0.1), true);
-    //     createBuilding(chunkBaseZ - Math.random() * (Constants.BUILDING_SPAWN_CHUNK_Z * 0.1), false);
-    //     if (Math.random() < 0.85) {
-    //         createBuilding(chunkBaseZ - (Constants.BUILDING_SPAWN_CHUNK_Z * 0.3) - Math.random() * (Constants.BUILDING_SPAWN_CHUNK_Z * 0.2), true);
-    //         createBuilding(chunkBaseZ - (Constants.BUILDING_SPAWN_CHUNK_Z * 0.3) - Math.random() * (Constants.BUILDING_SPAWN_CHUNK_Z * 0.2), false);
-    //     }
-    //     if (Math.random() < 0.65) {
-    //         createBuilding(chunkBaseZ - (Constants.BUILDING_SPAWN_CHUNK_Z * 0.6) - Math.random() * (Constants.BUILDING_SPAWN_CHUNK_Z * 0.2), true);
-    //         createBuilding(chunkBaseZ - (Constants.BUILDING_SPAWN_CHUNK_Z * 0.6) - Math.random() * (Constants.BUILDING_SPAWN_CHUNK_Z * 0.2), false);
-    //     }
-    //     currentFurthestPopulatedBuildingZ = chunkBaseZ;
-    // }
-    // GameState.setLastBuildingSpawnZ(currentFurthestPopulatedBuildingZ);
+    for (let zOffset = 0; zOffset < totalPopulateDepth; zOffset += Constants.BUILDING_SPAWN_CHUNK_Z) {
+        const chunkBaseZ = spawnHorizonForPrePop - zOffset;
+        createBuilding(chunkBaseZ - Math.random() * (Constants.BUILDING_SPAWN_CHUNK_Z * 0.1), true);
+        createBuilding(chunkBaseZ - Math.random() * (Constants.BUILDING_SPAWN_CHUNK_Z * 0.1), false);
+        if (Math.random() < 0.85) {
+            createBuilding(chunkBaseZ - (Constants.BUILDING_SPAWN_CHUNK_Z * 0.3) - Math.random() * (Constants.BUILDING_SPAWN_CHUNK_Z * 0.2), true);
+            createBuilding(chunkBaseZ - (Constants.BUILDING_SPAWN_CHUNK_Z * 0.3) - Math.random() * (Constants.BUILDING_SPAWN_CHUNK_Z * 0.2), false);
+        }
+        if (Math.random() < 0.65) {
+            createBuilding(chunkBaseZ - (Constants.BUILDING_SPAWN_CHUNK_Z * 0.6) - Math.random() * (Constants.BUILDING_SPAWN_CHUNK_Z * 0.2), true);
+            createBuilding(chunkBaseZ - (Constants.BUILDING_SPAWN_CHUNK_Z * 0.6) - Math.random() * (Constants.BUILDING_SPAWN_CHUNK_Z * 0.2), false);
+        }
+        currentFurthestPopulatedBuildingZ = chunkBaseZ;
+    }
+    GameState.setLastBuildingSpawnZ(currentFurthestPopulatedBuildingZ);
 
     // Pre-populate streetlights
     for (let i = 0; i < 6; i++) { // Start with some streetlights
