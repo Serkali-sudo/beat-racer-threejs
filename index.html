@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>Beat Racer 3D - Discovery Car v4.2 (Denser City)</title> <!-- Updated Title -->
+    <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
+    <script type="importmap">
+    {
+        "imports": {
+            "three": "https://cdn.jsdelivr.net/npm/three@0.176.0/build/three.module.js",
+            "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.176.0/examples/jsm/"
+        }
+    }
+    </script>
+
+    <style>
+        body { margin: 0; overflow: hidden; background-color: #111; color: #fff; font-family: 'Press Start 2P', cursive; display: flex; justify-content: center; align-items: center; height: 100vh; flex-direction: column; }
+        #gameCanvas { display: block; width: 100%; max-width: 450px; height: 80%; background-color: #000; touch-action: none; cursor: pointer; }
+        #uiContainer { position: absolute; top: 10px; left: 10px; right: 10px; margin: 0 auto; display: flex; justify-content: space-between; align-items: center; z-index: 10; pointer-events: none; }
+        #score { font-size: 1.2em; color: #0f0; text-align: left; }
+        #perfectionPhase { font-size: 1em; color: #fff; text-align: center; margin: 0 10px; opacity: 0; transition: opacity 0.3s ease-in-out; }
+        #perfectionPhase.phase1 { color: #00ffaa; opacity: 1; text-shadow: 0 0 5px #00ffaa; }
+        #perfectionPhase.phase2 { color: #ff6600; opacity: 1; text-shadow: 0 0 5px #ff6600; }
+        #perfectionPhase.phase3 { color: #ff00ff; opacity: 1; text-shadow: 0 0 5px #ff00ff; }
+        #rightUIGroup { display: flex; flex-direction: column; gap: 5px; align-items: flex-end; }
+        #boostMeterContainer { width: 100px; height: 15px; background-color: #444; border: 1px solid #888; border-radius: 3px; overflow: hidden; position: relative; }
+        #boostMeterFill { width: 0%; height: 100%; background-color: #ffcc00; transition: width 0.2s ease-out; }
+        #boostText { position: absolute; top: 0; left: 0; right: 0; bottom: 0; font-size: 0.7em; line-height: 15px; color: #000; text-align: center; text-shadow: 1px 1px 1px rgba(255,255,255,0.5); }
+        #magnetTimerContainer { width: 100px; height: 15px; background-color: #444; border: 1px solid #888; border-radius: 3px; overflow: hidden; position: relative; opacity: 0; transition: opacity 0.3s ease-in-out; }
+        #magnetTimerFill { width: 0%; height: 100%; background-color: #ff3333; transition: width 0.1s ease-out; }
+        #magnetText { position: absolute; top: 0; left: 0; right: 0; bottom: 0; font-size: 0.7em; line-height: 15px; color: #fff; text-align: center; text-shadow: 1px 1px 1px rgba(0,0,0,0.8); }
+        #magnetTimerContainer.active { opacity: 1; box-shadow: 0 0 10px #ff3333; }
+        #messageBox { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); background-color: rgba(0, 0, 0, 0.85); color: #fff; padding: 30px; border-radius: 15px; text-align: center; font-size: 1.2em; display: none; z-index: 20; border: 2px solid #0f0; pointer-events: auto; }
+        #messageBox button { font-family: 'Press Start 2P', cursive; font-size: 1em; padding: 10px 20px; margin-top: 20px; background-color: #0f0; color: #000; border: none; border-radius: 8px; cursor: pointer; box-shadow: 0 4px #0a0; transition: background-color 0.2s, transform 0.1s; }
+        #messageBox button:active { background-color: #0c0; transform: translateY(2px); box-shadow: 0 2px #0a0; }
+    </style>
+</head>
+<body>
+    <div id="uiContainer">
+        <div id="score">Score: 0</div>
+        <div id="perfectionPhase">Phase: 1</div>
+        <div id="rightUIGroup">
+            <div id="boostMeterContainer">
+                <div id="boostMeterFill"></div>
+                <div id="boostText">BOOST</div>
+            </div>
+            <div id="magnetTimerContainer">
+                <div id="magnetTimerFill"></div>
+                <div id="magnetText">MAGNET</div>
+            </div>
+        </div>
+    </div>
+    <div id="messageBox">
+        <div id="messageText">Ready?</div>
+        <button id="actionButton">Start Game</button>
+    </div>
+    <canvas id="gameCanvas"></canvas>
+
+    <script type="module" src="js/main.js"></script>
+</body>
+</html>
