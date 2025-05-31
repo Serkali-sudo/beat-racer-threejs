@@ -906,12 +906,13 @@ export function updateGame(deltaTime = 1/60) {
         // Handle different rotations for different collectible types
         if (collectable.userData.isMagnet) {
             // Magnet has distinctive rotation
-            collectable.rotation.y += collectable.userData.rotationSpeed;
-            collectable.rotation.x += collectable.userData.rotationSpeed * 0.5;
+            // Assuming Constants.MAGNET_ROTATION_SPEED (0.08) was per-frame, now scale with deltaTime
+            collectable.rotation.y += Constants.MAGNET_ROTATION_SPEED * 60.0 * deltaTime;
+            collectable.rotation.x += (Constants.MAGNET_ROTATION_SPEED * 0.5) * 60.0 * deltaTime;
         } else {
             // Regular collectible rotation
-            collectable.rotation.x += 0.02;
-            collectable.rotation.y += 0.03;
+            collectable.rotation.x += 0.02 * 60.0 * deltaTime;
+            collectable.rotation.y += 0.03 * 60.0 * deltaTime;
         }
         
         if (collectable.position.z > GameState.camera.position.z + Constants.ROAD_RECYCLE_POINT_OFFSET + 5) {
@@ -1022,7 +1023,8 @@ export function updateGame(deltaTime = 1/60) {
     if (GameState.obstacleSpawnTimer > speedAdjustedObstacleInterval && !spawnedThisFrame) {
         createObstacle();
         GameState.resetObstacleSpawnTimer(Math.random() * -0.5); // Small negative offset
-        GameState.setGameSpeed(Math.min(GameState.gameSpeed + 0.0015, 0.45)); // Increase base game speed slightly
+        // GameState.setGameSpeed(Math.min(GameState.gameSpeed + 0.0015, 0.45)); // Increase base game speed slightly
+        GameState.setGameSpeed(Math.min(GameState.gameSpeed + (0.0015 * 60.0 * deltaTime), 0.45)); // Increase base game speed slightly, deltaTime adjusted
         spawnedThisFrame = true;
     }
 
@@ -1283,7 +1285,7 @@ function updateEnemyDrillBehavior(deltaTime = 1/60) {
 
     // --- Drill Bit Rotation (Visual) ---
     if (drill.children.length > 1) { // Assuming tip is the second child
-        drill.children[1].rotation.z += 0.5; // Rotate the tip around its local Z axis (which is world Y after initial rotation)
+        drill.children[1].rotation.z += 0.5 * 60.0 * deltaTime; // Rotate the tip around its local Z axis (which is world Y after initial rotation)
     }
 
     // --- Collision Detection ---

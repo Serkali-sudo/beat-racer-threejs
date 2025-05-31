@@ -156,10 +156,15 @@ export function flashLane(colorHex, duration) {
 
     // Animate the flash effect
     let opacity = 0.9; // Increased initial opacity to match the brighter flash
-    const fadeStep = 0.9 / (duration / 16); // Assuming ~60fps, 16ms per frame
+    let lastFlashTime = 0;
     
-    function animateFlash() {
-        opacity -= fadeStep;
+    function animateFlash(currentTime) {
+        if (lastFlashTime === 0) lastFlashTime = currentTime;
+        const deltaTime = (currentTime - lastFlashTime) / 1000.0; // deltaTime in seconds
+        lastFlashTime = currentTime;
+
+        const fadeRate = 0.9 / (duration / 1000.0); // Opacity units to fade per second
+        opacity -= fadeRate * deltaTime;
         
         laneFlashObjects.forEach(flashMesh => {
             if (flashMesh.material) {
