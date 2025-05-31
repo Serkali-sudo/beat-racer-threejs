@@ -698,7 +698,7 @@ export function updateTrail(effectiveGameSpeed = GameState.gameSpeed, deltaTime 
         const p = GameState.trailParticles[i];
         p.life -= deltaTime;
 
-        p.mesh.position.z += effectiveGameSpeed;
+        p.mesh.position.z += effectiveGameSpeed * 60.0 * deltaTime;
         p.mesh.material.opacity = Math.max(0, (p.life / Constants.TRAIL_PARTICLE_LIFESPAN) * p.initialOpacity);
 
         if (p.life <= 0) {
@@ -756,15 +756,16 @@ function updateScenerySpawning(deltaTime = 1/60) {
     }
 }
 
-function updatePedestrians(effectiveGameSpeed = GameState.gameSpeed) {
+export function updatePedestrians(effectiveGameSpeed = GameState.gameSpeed, deltaTime = 1/60) {
     if (GameState.gameState !== 'playing') return;
 
     // Move and animate pedestrians
     for (let i = GameState.pedestrians.length - 1; i >= 0; i--) {
         const pedestrian = GameState.pedestrians[i];
         
-        // Move with road and their own walking speed
-        pedestrian.position.z += effectiveGameSpeed + pedestrian.userData.walkSpeed;
+        // Move with road and their own walking speed, adjusted for deltaTime
+        const combinedSpeed = effectiveGameSpeed + pedestrian.userData.walkSpeed;
+        pedestrian.position.z += combinedSpeed * 60.0 * deltaTime;
         
         // Walking animation synced to music if available
         let animSpeed = Constants.PEDESTRIAN_ANIMATION_SPEED;
@@ -823,11 +824,11 @@ export function updateGame(deltaTime = 1/60) {
 
     // Calculate effective speed with perfection multiplier
     const perfectionMultiplier = getPerfectionSpeedMultiplier();
-    const effectiveGameSpeed = GameState.gameSpeed * perfectionMultiplier;
+    const effectiveGameSpeed = GameState.gameSpeed * perfectionMultiplier; // This is units per target_frame_tick
 
     // Move road segments
     GameState.roadSegments.forEach(segment => {
-        segment.position.z += effectiveGameSpeed;
+        segment.position.z += effectiveGameSpeed * 60.0 * deltaTime;
         if (segment.position.z > GameState.camera.position.z + Constants.ROAD_RECYCLE_POINT_OFFSET) {
             segment.position.z -= Constants.ROAD_LENGTH;
         }
@@ -836,7 +837,7 @@ export function updateGame(deltaTime = 1/60) {
     // Move and recycle obstacles
     for (let i = GameState.obstacles.length - 1; i >= 0; i--) {
         const obstacle = GameState.obstacles[i];
-        obstacle.position.z += effectiveGameSpeed;
+        obstacle.position.z += effectiveGameSpeed * 60.0 * deltaTime;
 
         // Beat-synced vertical movement
         if (analyser) {
@@ -863,7 +864,9 @@ export function updateGame(deltaTime = 1/60) {
             const targetJumpHeight = Constants.OBSTACLE_SPIKE_HEIGHT * Constants.OBSTACLE_BEAT_JUMP_FACTOR * normalizedBeat;
             const targetY = obstacle.userData.originalY + targetJumpHeight;
             
-            obstacle.position.y += (targetY - obstacle.position.y) * Constants.MUSIC_SMOOTHING_FACTOR;
+            const musicSmoothingFactor = Constants.MUSIC_SMOOTHING_FACTOR;
+            const adjustedMusicSmoothing = 1.0 - Math.pow(1.0 - musicSmoothingFactor, 60.0 * deltaTime);
+            obstacle.position.y += (targetY - obstacle.position.y) * adjustedMusicSmoothing;
 
         } else if (sound && sound.isPlaying) { 
             const elapsedTime = clock.getElapsedTime();
@@ -893,11 +896,12 @@ export function updateGame(deltaTime = 1/60) {
                 direction.normalize();
                 
                 // Move towards player
-                collectable.position.add(direction.multiplyScalar(Constants.MAGNET_ATTRACTION_SPEED));
+                // MAGNET_ATTRACTION_SPEED is likely units/frame, scale by 60*deltaTime
+                collectable.position.add(direction.multiplyScalar(Constants.MAGNET_ATTRACTION_SPEED * 60.0 * deltaTime));
             }
         }
         
-        collectable.position.z += effectiveGameSpeed;
+        collectable.position.z += effectiveGameSpeed * 60.0 * deltaTime;
         
         // Handle different rotations for different collectible types
         if (collectable.userData.isMagnet) {
@@ -926,7 +930,7 @@ export function updateGame(deltaTime = 1/60) {
     // Move and recycle buildings
     for (let i = GameState.buildings.length - 1; i >= 0; i--) {
         const building = GameState.buildings[i];
-        building.position.z += effectiveGameSpeed;
+        building.position.z += effectiveGameSpeed * 60.0 * deltaTime;
 
         // --- Building Beat Animation --- 
         if (analyser && building.userData.originalY !== undefined) {
@@ -946,7 +950,9 @@ export function updateGame(deltaTime = 1/60) {
             const targetJumpHeight = buildingHeight * Constants.BUILDING_BEAT_JUMP_FACTOR * normalizedBeat; 
             const targetY = building.userData.originalY + targetJumpHeight;
             
-            building.position.y += (targetY - building.position.y) * Constants.MUSIC_SMOOTHING_FACTOR;
+            const musicSmoothingFactor = Constants.MUSIC_SMOOTHING_FACTOR;
+            const adjustedMusicSmoothing = 1.0 - Math.pow(1.0 - musicSmoothingFactor, 60.0 * deltaTime);
+            building.position.y += (targetY - building.position.y) * adjustedMusicSmoothing;
         }
         // --- End Building Beat Animation ---
 
@@ -982,7 +988,7 @@ export function updateGame(deltaTime = 1/60) {
     // Move and recycle streetlights
     for (let i = GameState.streetLights.length - 1; i >= 0; i--) {
         const light = GameState.streetLights[i];
-        light.position.z += effectiveGameSpeed;
+        light.position.z += effectiveGameSpeed * 60.0 * deltaTime;
         // Use pole height for a rough recycle check, similar to buildings
         if (light.position.z - Constants.STREETLIGHT_POLE_HEIGHT / 2 > GameState.camera.position.z + Constants.ROAD_RECYCLE_POINT_OFFSET + Constants.STREETLIGHT_RECYCLE_EXTRA_OFFSET) {
             GameState.scene.remove(light);
@@ -1002,10 +1008,10 @@ export function updateGame(deltaTime = 1/60) {
     }
 
     updateScenerySpawning(deltaTime);
-    updatePedestrians(effectiveGameSpeed);
+    updatePedestrians(effectiveGameSpeed, deltaTime);
 
     // Spawn obstacles and collectables based on timers and game speed
-    const speedFactor = Math.max(0.5, effectiveGameSpeed / 0.15);
+    const speedFactor = Math.max(0.5, (effectiveGameSpeed * 60.0 * deltaTime) / (0.15 * 60.0 * deltaTime) ); // Normalize effectiveGameSpeed relative to base 0.15
     const speedAdjustedObstacleInterval = Constants.OBSTACLE_SPAWN_INTERVAL / speedFactor;
     const speedAdjustedCollectableInterval = Constants.COLLECTABLE_SPAWN_INTERVAL / speedFactor;
     
@@ -1029,7 +1035,9 @@ export function updateGame(deltaTime = 1/60) {
 
     // Update car position and animation
     const carTargetX = (GameState.targetLane - (Constants.LANE_COUNT - 1) / 2) * Constants.LANE_WIDTH;
-    GameState.carGroup.position.x += (carTargetX - GameState.carGroup.position.x) * 0.15; // Smooth lane change
+    const carLerpFactor = 0.15;
+    const adjustedCarLerpFactor = 1.0 - Math.pow(1.0 - carLerpFactor, 60.0 * deltaTime);
+    GameState.carGroup.position.x += (carTargetX - GameState.carGroup.position.x) * adjustedCarLerpFactor; // Smooth lane change
 
     if (GameState.isJumping) {
         GameState.incrementJumpTimer(deltaTime);
@@ -1046,8 +1054,11 @@ export function updateGame(deltaTime = 1/60) {
     } else {
         // Car tilt based on movement
         const tiltAngle = (GameState.carGroup.position.x - carTargetX) * 0.1;
-        GameState.carGroup.rotation.z = THREE.MathUtils.lerp(GameState.carGroup.rotation.z, tiltAngle, 0.1);
-        GameState.carGroup.rotation.y = THREE.MathUtils.lerp(GameState.carGroup.rotation.y, (GameState.carGroup.position.x - carTargetX) * -0.05, 0.1);
+        const rotationLerpFactor = 0.1;
+        const adjustedRotationLerpFactor = 1.0 - Math.pow(1.0 - rotationLerpFactor, 60.0 * deltaTime);
+
+        GameState.carGroup.rotation.z = THREE.MathUtils.lerp(GameState.carGroup.rotation.z, tiltAngle, adjustedRotationLerpFactor);
+        GameState.carGroup.rotation.y = THREE.MathUtils.lerp(GameState.carGroup.rotation.y, (GameState.carGroup.position.x - carTargetX) * -0.05, adjustedRotationLerpFactor);
     }
 
     // Collision detection
@@ -1123,7 +1134,10 @@ export function updateGame(deltaTime = 1/60) {
 
     // Update camera position and lookAt
     const targetCamZ = GameState.carGroup.position.z + Constants.CAMERA_DISTANCE_BEHIND;
-    GameState.camera.position.z = THREE.MathUtils.lerp(GameState.camera.position.z, targetCamZ, 0.1);
+    const cameraLerpFactor = 0.1;
+    const adjustedCameraLerpFactor = 1.0 - Math.pow(1.0 - cameraLerpFactor, 60.0 * deltaTime);
+    GameState.camera.position.z = THREE.MathUtils.lerp(GameState.camera.position.z, targetCamZ, adjustedCameraLerpFactor);
+    
     const targetLookAtZ = GameState.carGroup.position.z + Constants.CAMERA_LOOKAT_AHEAD_Z;
     const currentLookAt = new THREE.Vector3();
     GameState.camera.getWorldDirection(currentLookAt).multiplyScalar(10).add(GameState.camera.position);
@@ -1132,7 +1146,9 @@ export function updateGame(deltaTime = 1/60) {
         Constants.CAMERA_LOOKAT_Y,
         targetLookAtZ
     );
-    const smoothedLookAt = currentLookAt.lerp(targetLookAtPos, 0.08);
+    const lookAtLerpFactor = 0.08;
+    const adjustedLookAtLerpFactor = 1.0 - Math.pow(1.0 - lookAtLerpFactor, 60.0 * deltaTime);
+    const smoothedLookAt = currentLookAt.lerp(targetLookAtPos, adjustedLookAtLerpFactor);
     GameState.camera.lookAt(smoothedLookAt);
 
     updateTrail(effectiveGameSpeed, deltaTime);
@@ -1155,6 +1171,7 @@ function updateEnemyDrillBehavior(deltaTime = 1/60) {
             if(GameState.enemyDrill) { 
                 GameState.enemyDrill.position.x = GameState.carGroup.position.x;
                 GameState.enemyDrill.position.y = Constants.DRILL_BODY_RADIUS; 
+                // Ensure drill spawns relative to car, then its movement will be deltaTime adjusted
                 GameState.enemyDrill.position.z = GameState.carGroup.position.z + Constants.DRILL_INITIAL_Z_OFFSET; 
                 GameState.setCurrentDrillChaseDistance(Constants.DRILL_MAX_CHASE_DISTANCE); // Initialize chase distance
                 GameState.setEnemyDrillState('maneuvering'); // New state: get behind car
@@ -1191,7 +1208,7 @@ function updateEnemyDrillBehavior(deltaTime = 1/60) {
             currentSpeed = Constants.DRILL_APPROACH_SPEED; // Use a consistent speed to get behind
             // Drill needs to increase its Z value to get behind the car
             if (drill.position.z < targetZ) {
-                drill.position.z += currentSpeed;
+                drill.position.z += currentSpeed * 60.0 * deltaTime;
                 // If it overshoots and gets way too far behind, clamp it or transition
                 if (drill.position.z > targetZ + Constants.DRILL_MAX_CHASE_DISTANCE * 0.5) { // If it's significantly past the *initial* target
                      drill.position.z = targetZ;
@@ -1210,7 +1227,7 @@ function updateEnemyDrillBehavior(deltaTime = 1/60) {
                           // For now, let's assume it's for when it respawns far behind after deflection
             targetZ = carPos.z + GameState.currentDrillChaseDistance;
             currentSpeed = Constants.DRILL_APPROACH_SPEED;
-            drill.position.z -= currentSpeed; 
+            drill.position.z -= currentSpeed * 60.0 * deltaTime; 
             if (drill.position.z <= targetZ) { 
                 GameState.setEnemyDrillState('chasing');
             }
@@ -1228,16 +1245,16 @@ function updateEnemyDrillBehavior(deltaTime = 1/60) {
             currentSpeed = Math.min(desiredChaseSpeed, Constants.DRILL_MAX_SPEED);
             
             if (drill.position.z > targetZ) { 
-                 drill.position.z -= currentSpeed; 
+                 drill.position.z -= currentSpeed * 60.0 * deltaTime; 
                  drill.position.z = Math.max(drill.position.z, targetZ - 0.5); 
             } else if (drill.position.z < targetZ - 1.0) { 
-                 drill.position.z += currentSpeed * 0.5; 
+                 drill.position.z += (currentSpeed * 0.5) * 60.0 * deltaTime; 
             }
             break;
 
         case 'deflected':
             currentSpeed = Constants.DRILL_RETREAT_SPEED; 
-            drill.position.z += currentSpeed; 
+            drill.position.z += currentSpeed * 60.0 * deltaTime; 
             // When deflected, reset its target chase distance for when it comes back
             GameState.setCurrentDrillChaseDistance(Constants.DRILL_MAX_CHASE_DISTANCE);
             if (drill.position.z > carPos.z + Math.abs(Constants.DRILL_INITIAL_Z_OFFSET) * 2) { // Retreat further if spawned in front
@@ -1248,7 +1265,7 @@ function updateEnemyDrillBehavior(deltaTime = 1/60) {
         
         case 'retreating': 
             currentSpeed = Constants.DRILL_RETREAT_SPEED;
-            drill.position.z += currentSpeed; 
+            drill.position.z += currentSpeed * 60.0 * deltaTime; 
             GameState.setCurrentDrillChaseDistance(Constants.DRILL_MAX_CHASE_DISTANCE); // Reset target distance
             if (drill.position.z > carPos.z + Math.abs(Constants.DRILL_INITIAL_Z_OFFSET) * 2.5) { 
                 GameState.resetEnemyDrillState();
@@ -1260,7 +1277,9 @@ function updateEnemyDrillBehavior(deltaTime = 1/60) {
 
     // --- X Alignment (Lane Following) ---
     const targetX = carPos.x;
-    drill.position.x += (targetX - drill.position.x) * Constants.DRILL_X_ALIGN_SPEED;
+    const drillAlignSpeed = Constants.DRILL_X_ALIGN_SPEED;
+    const adjustedDrillAlignSpeed = 1.0 - Math.pow(1.0 - drillAlignSpeed, 60.0 * deltaTime);
+    drill.position.x += (targetX - drill.position.x) * adjustedDrillAlignSpeed;
 
     // --- Drill Bit Rotation (Visual) ---
     if (drill.children.length > 1) { // Assuming tip is the second child
@@ -1589,7 +1608,8 @@ function updateCollectableBurst(deltaTime = 1/60) {
         
         for (let j = particles.length - 1; j >= 0; j--) {
             const particle = particles[j];
-            particle.position.add(particle.userData.velocity);
+            // particle.userData.velocity is likely units/frame, scale by 60*deltaTime
+            particle.position.addScaledVector(particle.userData.velocity, 60.0 * deltaTime);
             particle.userData.life -= deltaTime;
             
             // Fade out effect
@@ -1664,8 +1684,10 @@ export function updatePerfectionMechanism(effectiveGameSpeed = GameState.gameSpe
         particle.life -= deltaTime;
 
         // Move particle
-        particle.mesh.position.add(particle.velocity);
-        particle.mesh.position.z += effectiveGameSpeed; // Move with world using effective speed
+        // particle.velocity is likely units/frame, scale by 60*deltaTime for its own movement
+        // effectiveGameSpeed is units/frame, scale by 60*deltaTime for world movement
+        particle.mesh.position.addScaledVector(particle.velocity, 60.0 * deltaTime);
+        particle.mesh.position.z += effectiveGameSpeed * 60.0 * deltaTime; // Move with world using effective speed
 
         // Fade out
         particle.mesh.material.opacity = (particle.life / particle.initialLife) * 0.8;
@@ -1685,8 +1707,10 @@ export function updatePerfectionMechanism(effectiveGameSpeed = GameState.gameSpe
         particle.life -= deltaTime;
 
         // Move particle
-        particle.mesh.position.add(particle.velocity);
-        particle.mesh.position.z += effectiveGameSpeed; // Move with world
+        // particle.velocity is likely units/frame, scale by 60*deltaTime for its own movement
+        // effectiveGameSpeed is units/frame, scale by 60*deltaTime for world movement
+        particle.mesh.position.addScaledVector(particle.velocity, 60.0 * deltaTime);
+        particle.mesh.position.z += effectiveGameSpeed * 60.0 * deltaTime; // Move with world
 
         // Fade out and shrink
         const lifeRatio = particle.life / particle.initialLife;
