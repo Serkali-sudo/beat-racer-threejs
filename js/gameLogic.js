@@ -365,13 +365,14 @@ export function createBuilding(targetZ, onLeftSide) {
     const chosenColorHex = Constants.NEON_BUILDING_COLORS[Math.floor(Math.random() * Constants.NEON_BUILDING_COLORS.length)];
     const baseColor = new THREE.Color(chosenColorHex);
     
-    const windowTexture = createWindowTexture(width, height, chosenColorHex);
+    // const windowTexture = createWindowTexture(width, height, chosenColorHex); // WINDOWS REMOVED FOR TESTING
 
     const buildingMaterial = new THREE.MeshPhongMaterial({
-        color: baseColor.clone().multiplyScalar(0.05), // Darker base for windows to pop
-        map: windowTexture, // Apply window texture
+        // color: baseColor.clone().multiplyScalar(0.05), // Darker base for windows to pop
+        // map: windowTexture, // Apply window texture // WINDOWS REMOVED FOR TESTING
+        color: baseColor.clone().multiplyScalar(0.25), // Slightly darker base color since no windows
         emissive: chosenColorHex,
-        emissiveMap: windowTexture, // Make windows emissive
+        // emissiveMap: windowTexture, // Make windows emissive // WINDOWS REMOVED FOR TESTING
         emissiveIntensity: Constants.BUILDING_EMISSIVE_INTENSITY_BASE + Math.random() * Constants.BUILDING_EMISSIVE_INTENSITY_VAR,
         shininess: 25,
         flatShading: true,
@@ -380,7 +381,7 @@ export function createBuilding(targetZ, onLeftSide) {
 
     const building = new THREE.Mesh(buildingGeometry, buildingMaterial);
     // Store texture for later disposal
-    building.userData.windowTexture = windowTexture;
+    // building.userData.windowTexture = windowTexture; // WINDOWS REMOVED FOR TESTING
 
     const originalBuildingY = height / 2 - 0.05; // Or whatever the base Y is set to
     building.userData.originalY = originalBuildingY;
@@ -963,7 +964,7 @@ export function updateGame(deltaTime = 1/60) {
         if (building.position.z - buildingDepth / 2 > GameState.camera.position.z + Constants.ROAD_RECYCLE_POINT_OFFSET + Constants.BUILDING_RECYCLE_EXTRA_OFFSET) {
             GameState.scene.remove(building);
             if (building.geometry) building.geometry.dispose();
-            if (building.userData.windowTexture) building.userData.windowTexture.dispose(); // Dispose texture
+            // if (building.userData.windowTexture) building.userData.windowTexture.dispose(); // Dispose texture // WINDOWS REMOVED FOR TESTING
             
             // Dispose materials of building and its children (signs)
             building.traverse(object => {
