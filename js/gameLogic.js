@@ -8,6 +8,11 @@ let audioListener, sound, audioLoader, analyser;
 const musicFile = 'assets/music/Under Neon Skies.mp3'; // Detected music file
 let clock = new THREE.Clock(); // For general timing, less for direct beat sync now
 
+// Flags to disable features
+const DISABLE_STREETLIGHTS = true;
+const DISABLE_PEDESTRIANS = true;
+const DISABLE_NEON_SIGNS = true;
+
 // --- Object Creation ---
 
 // Function to create a simple window texture
@@ -48,6 +53,7 @@ function createWindowTexture(width, height, color) {
 }
 
 export function createStreetLight(targetZ, onLeftSide) {
+    if (DISABLE_STREETLIGHTS) return;
     if (GameState.streetLights.length >= Constants.MAX_ACTIVE_STREETLIGHTS) return;
 
     const streetLightGroup = new THREE.Group();
@@ -365,14 +371,13 @@ export function createBuilding(targetZ, onLeftSide) {
     const chosenColorHex = Constants.NEON_BUILDING_COLORS[Math.floor(Math.random() * Constants.NEON_BUILDING_COLORS.length)];
     const baseColor = new THREE.Color(chosenColorHex);
     
-    // const windowTexture = createWindowTexture(width, height, chosenColorHex); // WINDOWS REMOVED FOR TESTING
+    const windowTexture = createWindowTexture(width, height, chosenColorHex);
 
     const buildingMaterial = new THREE.MeshPhongMaterial({
-        // color: baseColor.clone().multiplyScalar(0.05), // Darker base for windows to pop
-        // map: windowTexture, // Apply window texture // WINDOWS REMOVED FOR TESTING
-        color: baseColor.clone().multiplyScalar(0.25), // Slightly darker base color since no windows
+        color: baseColor.clone().multiplyScalar(0.05), // Darker base for windows to pop
+        map: windowTexture, // Apply window texture
         emissive: chosenColorHex,
-        // emissiveMap: windowTexture, // Make windows emissive // WINDOWS REMOVED FOR TESTING
+        emissiveMap: windowTexture, // Make windows emissive
         emissiveIntensity: Constants.BUILDING_EMISSIVE_INTENSITY_BASE + Math.random() * Constants.BUILDING_EMISSIVE_INTENSITY_VAR,
         shininess: 25,
         flatShading: true,
@@ -381,7 +386,7 @@ export function createBuilding(targetZ, onLeftSide) {
 
     const building = new THREE.Mesh(buildingGeometry, buildingMaterial);
     // Store texture for later disposal
-    // building.userData.windowTexture = windowTexture; // WINDOWS REMOVED FOR TESTING
+    building.userData.windowTexture = windowTexture;
 
     const originalBuildingY = height / 2 - 0.05; // Or whatever the base Y is set to
     building.userData.originalY = originalBuildingY;
@@ -408,7 +413,7 @@ export function createBuilding(targetZ, onLeftSide) {
     GameState.addBuilding(building);
 
     // Add random neon signs
-    if (Math.random() < 0.4) { // 40% chance of having a sign
+    if (!DISABLE_NEON_SIGNS && Math.random() < 0.4) { // 40% chance of having a sign
         const signHeight = THREE.MathUtils.randFloat(1.0, 3.0); // Made taller
         const signWidth = THREE.MathUtils.randFloat(2, Math.min(6, effectiveWidthForPlacement * 0.9)); // Made wider
         const signDepth = 0.3; // Made much thicker for better visibility
@@ -456,6 +461,7 @@ export function createBuilding(targetZ, onLeftSide) {
 }
 
 export function createPedestrian(targetZ, onLeftSide) {
+    if (DISABLE_PEDESTRIANS) return;
     if (GameState.pedestrians.length >= Constants.MAX_ACTIVE_PEDESTRIANS) return;
 
     const pedestrianGroup = new THREE.Group();
@@ -737,20 +743,24 @@ function updateScenerySpawning(deltaTime = 1/60) {
     // Streetlight Spawning - Timer-based like pedestrians
     GameState.incrementStreetLightSpawnTimer(deltaTime);
     if (GameState.streetLightSpawnTimer >= Constants.STREETLIGHT_SPAWN_INTERVAL) {
-        const streetLightZ = currentHorizonZ - Math.random() * 10;
-        createStreetLight(streetLightZ, true); // Left side
-        createStreetLight(streetLightZ, false); // Right side
+        if (!DISABLE_STREETLIGHTS) {
+            const streetLightZ = currentHorizonZ - Math.random() * 10;
+            createStreetLight(streetLightZ, true); // Left side
+            createStreetLight(streetLightZ, false); // Right side
+        }
         GameState.resetStreetLightSpawnTimer();
     }
 
     // Pedestrian Spawning
     GameState.incrementPedestrianSpawnTimer(deltaTime);
     if (GameState.pedestrianSpawnTimer >= Constants.PEDESTRIAN_SPAWN_INTERVAL) {
-        if (Math.random() < Constants.PEDESTRIAN_SPAWN_CHANCE) {
-            const pedestrianZ = currentHorizonZ - Math.random() * 20;
-            createPedestrian(pedestrianZ, true); // Left sidewalk
-            if (Math.random() < 0.7) { // 70% chance for both sides
-                createPedestrian(pedestrianZ - Math.random() * 10, false); // Right sidewalk
+        if (!DISABLE_PEDESTRIANS) {
+            if (Math.random() < Constants.PEDESTRIAN_SPAWN_CHANCE) {
+                const pedestrianZ = currentHorizonZ - Math.random() * 20;
+                createPedestrian(pedestrianZ, true); // Left sidewalk
+                if (Math.random() < 0.7) { // 70% chance for both sides
+                    createPedestrian(pedestrianZ - Math.random() * 10, false); // Right sidewalk
+                }
             }
         }
         GameState.resetPedestrianSpawnTimer();
@@ -758,7 +768,7 @@ function updateScenerySpawning(deltaTime = 1/60) {
 }
 
 export function updatePedestrians(effectiveGameSpeed = GameState.gameSpeed, deltaTime = 1/60) {
-    if (GameState.gameState !== 'playing') return;
+    if (DISABLE_PEDESTRIANS || GameState.gameState !== 'playing') return;
 
     // Move and animate pedestrians
     for (let i = GameState.pedestrians.length - 1; i >= 0; i--) {
@@ -964,7 +974,7 @@ export function updateGame(deltaTime = 1/60) {
         if (building.position.z - buildingDepth / 2 > GameState.camera.position.z + Constants.ROAD_RECYCLE_POINT_OFFSET + Constants.BUILDING_RECYCLE_EXTRA_OFFSET) {
             GameState.scene.remove(building);
             if (building.geometry) building.geometry.dispose();
-            // if (building.userData.windowTexture) building.userData.windowTexture.dispose(); // Dispose texture // WINDOWS REMOVED FOR TESTING
+            if (building.userData.windowTexture) building.userData.windowTexture.dispose(); // Dispose texture
             
             // Dispose materials of building and its children (signs)
             building.traverse(object => {
@@ -1427,18 +1437,22 @@ export function startGame() {
     GameState.setLastBuildingSpawnZ(currentFurthestPopulatedBuildingZ);
 
     // Pre-populate streetlights
-    for (let i = 0; i < 6; i++) { // Start with some streetlights
-        const streetLightZ = spawnHorizonForPrePop - Math.random() * totalPopulateDepth * 0.7;
-        createStreetLight(streetLightZ, true); // Left side
-        createStreetLight(streetLightZ - Math.random() * 10, false); // Right side, slightly offset
+    if (!DISABLE_STREETLIGHTS) {
+        for (let i = 0; i < 6; i++) { // Start with some streetlights
+            const streetLightZ = spawnHorizonForPrePop - Math.random() * totalPopulateDepth * 0.7;
+            createStreetLight(streetLightZ, true); // Left side
+            createStreetLight(streetLightZ - Math.random() * 10, false); // Right side, slightly offset
+        }
     }
 
     // Pre-populate pedestrians
-    for (let i = 0; i < 8; i++) { // Start with some pedestrians
-        const pedestrianZ = spawnHorizonForPrePop - Math.random() * totalPopulateDepth * 0.8;
-        createPedestrian(pedestrianZ, true); // Left sidewalk
-        if (Math.random() < 0.6) {
-            createPedestrian(pedestrianZ - Math.random() * 15, false); // Right sidewalk
+    if (!DISABLE_PEDESTRIANS) {
+        for (let i = 0; i < 8; i++) { // Start with some pedestrians
+            const pedestrianZ = spawnHorizonForPrePop - Math.random() * totalPopulateDepth * 0.8;
+            createPedestrian(pedestrianZ, true); // Left sidewalk
+            if (Math.random() < 0.6) {
+                createPedestrian(pedestrianZ - Math.random() * 15, false); // Right sidewalk
+            }
         }
     }
 
