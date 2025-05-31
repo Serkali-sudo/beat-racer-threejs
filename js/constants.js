@@ -34,7 +34,7 @@ export const TRAIL_PARTICLE_MAX_COUNT = 200;
 export const TRAIL_PARTICLE_LIFESPAN = 1.67; // 1.67 seconds (was 100 frames)
 export const TRAIL_PARTICLE_SIZE = 0.2;
 export const TRAIL_PARTICLE_INITIAL_OPACITY = 0.6;
-export const TRAIL_SPAWN_INTERVAL = 0.017; // Spawn every 0.017 seconds (was every 1 frame ~ 60fps)
+export const TRAIL_SPAWN_INTERVAL = 0.08; // Spawn every 0.08 seconds (was 0.017 - way too frequent!)
 export const CAR_MODEL_REAR_Z_OFFSET = -(1.4 * CAR_SCALE * 0.95); // Approx rear of the car model relative to carGroup.position.z
 export const TRAIL_HALF_WIDTH = (1.0 * CAR_SCALE) * 0.85; // Car hw is 1.0, scaled by CAR_SCALE. This is half the trail width.
 
@@ -164,7 +164,7 @@ export const WIND_PARTICLE_SPEED_MIN = 0.3;
 export const WIND_PARTICLE_SPEED_MAX = 0.6;
 export const WIND_PARTICLE_LIFE = 1.33; // 1.33 seconds (was 80 frames)
 export const WIND_PARTICLE_SIZE = 0.15;
-export const WIND_PARTICLE_SPAWN_RATE = 0.05; // Spawn every 0.05 seconds (was every 3 frames)
+export const WIND_PARTICLE_SPAWN_RATE = 0.15; // Spawn every 0.15 seconds (was 0.05 - too frequent!)
 export const WIND_PARTICLE_SPREAD = 8; // How wide the wind effect spreads around car
 
 // Perfection burst effect constants
@@ -195,7 +195,7 @@ export const MAGNET_COLOR = 0xff3333; // Red color for magnet
 export const MAGNET_EMISSIVE_COLOR = 0xff6666; // Red emissive glow
 export const MAGNET_EMISSIVE_INTENSITY = 1.2; // Bright glow
 export const MAGNET_SPAWN_CHANCE = 0.05; // 5% chance to spawn magnet instead of regular collectable
-export const MAGNET_ROTATION_SPEED = 0.08; // How fast the magnet rotates
+export const MAGNET_ROTATION_SPEED = 0.08; // DEPRECATED - use MAGNET_ROTATION_SPEED_PER_SECOND instead
 
 // --- Headlight Constants ---
 export const HEADLIGHT_COLOR = 0xffffe0; // Slightly yellowish white
@@ -209,5 +209,16 @@ export const HEADLIGHT_POS_Y = 0.35 * CAR_SCALE; // Y position on the car
 export const HEADLIGHT_POS_Z = -1.3 * CAR_SCALE; // Z position on the car (front)
 export const HEADLIGHT_TARGET_Y_OFFSET = 0.25 * CAR_SCALE; // Target Y offset, slightly lower than headlight
 export const HEADLIGHT_TARGET_Z_OFFSET = -20 * CAR_SCALE; // How far ahead the target is (reduced from -20)
+
+// --- Animation Constants (deltaTime-based) ---
+export const COLLECTABLE_ROTATION_SPEED = 1.2; // radians per second
+export const MAGNET_ROTATION_SPEED_PER_SECOND = 4.8; // radians per second (was 0.08 per frame)
+export const DRILL_BIT_ROTATION_SPEED = 30.0; // radians per second (was 0.5 per frame)
+
+// --- Performance Constants for Mobile ---
+export const PERFORMANCE_DELTA_THRESHOLD = 1/50; // If deltaTime > 20ms, we're likely on a slow device
+export const MOBILE_TRAIL_SPAWN_INTERVAL_MULTIPLIER = 2.0; // Reduce trail frequency on mobile
+export const MOBILE_WIND_SPAWN_INTERVAL_MULTIPLIER = 2.0; // Reduce wind particle frequency on mobile
+export const MOBILE_MAX_PARTICLES_REDUCTION_FACTOR = 0.7; // Reduce max particles by 30% on mobile
 
 // ... existing code ... 

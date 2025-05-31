@@ -314,8 +314,7 @@ export function createCollectable() {
         // Mark as magnet powerup
         collectable.userData.isMagnet = true;
         
-        // Add distinctive rotating animation
-        collectable.userData.rotationSpeed = Constants.MAGNET_ROTATION_SPEED;
+        // Add distinctive rotating animation - rotation speed now handled by constant
     } else {
         // Create regular collectable
         collectableMaterial = new THREE.MeshPhongMaterial({
@@ -570,7 +569,13 @@ export function createPedestrian(targetZ, onLeftSide) {
 }
 
 export function createTrailParticle(xOffset = 0) {
-    if (GameState.trailParticles.length >= Constants.TRAIL_PARTICLE_MAX_COUNT) return;
+    // Adaptive performance: reduce max particles on slower devices
+    let maxTrailParticles = Constants.TRAIL_PARTICLE_MAX_COUNT;
+    if (GameState.lastDeltaTime && GameState.lastDeltaTime > Constants.PERFORMANCE_DELTA_THRESHOLD) {
+        maxTrailParticles *= Constants.MOBILE_MAX_PARTICLES_REDUCTION_FACTOR;
+    }
+    
+    if (GameState.trailParticles.length >= maxTrailParticles) return;
 
     const particleGeometry = new THREE.BufferGeometry();
     particleGeometry.setAttribute('position', new THREE.Float32BufferAttribute([0,0,0], 3));
@@ -616,7 +621,13 @@ export function createTrailParticle(xOffset = 0) {
 }
 
 export function createWindParticle() {
-    if (GameState.windParticles.length >= Constants.WIND_PARTICLE_COUNT) return;
+    // Adaptive performance: reduce max particles on slower devices
+    let maxWindParticles = Constants.WIND_PARTICLE_COUNT;
+    if (GameState.lastDeltaTime && GameState.lastDeltaTime > Constants.PERFORMANCE_DELTA_THRESHOLD) {
+        maxWindParticles *= Constants.MOBILE_MAX_PARTICLES_REDUCTION_FACTOR;
+    }
+    
+    if (GameState.windParticles.length >= maxWindParticles) return;
 
     const particleGeometry = new THREE.BufferGeometry();
     particleGeometry.setAttribute('position', new THREE.Float32BufferAttribute([0,0,0], 3));
@@ -678,16 +689,21 @@ export function updateTrail(effectiveGameSpeed = GameState.gameSpeed, deltaTime 
         trailSpawnInterval *= Constants.PERFECTION_TRAIL_SPAWN_RATE_MULTIPLIER;
     }
     
+    // Adaptive performance: if deltaTime is large, we're on a slower device
+    if (deltaTime > Constants.PERFORMANCE_DELTA_THRESHOLD) {
+        trailSpawnInterval *= Constants.MOBILE_TRAIL_SPAWN_INTERVAL_MULTIPLIER;
+    }
+    
     if (GameState.trailSpawnTimer >= trailSpawnInterval) {
         createTrailParticle(-Constants.TRAIL_HALF_WIDTH);
         createTrailParticle(Constants.TRAIL_HALF_WIDTH);
         
-        // Spawn additional trail particles during higher perfection phases
-        if (GameState.currentPerfectionPhase >= 2) {
+        // Spawn additional trail particles during higher perfection phases (only if performance allows)
+        if (GameState.currentPerfectionPhase >= 2 && deltaTime <= Constants.PERFORMANCE_DELTA_THRESHOLD) {
             createTrailParticle(-Constants.TRAIL_HALF_WIDTH * 1.5);
             createTrailParticle(Constants.TRAIL_HALF_WIDTH * 1.5);
         }
-        if (GameState.currentPerfectionPhase >= 3) {
+        if (GameState.currentPerfectionPhase >= 3 && deltaTime <= Constants.PERFORMANCE_DELTA_THRESHOLD) {
             createTrailParticle(0); // Center trail for phase 3
         }
         
@@ -818,6 +834,9 @@ function updatePedestrians(effectiveGameSpeed = GameState.gameSpeed) {
 export function updateGame(deltaTime = 1/60) {
     if (GameState.gameState !== 'playing') return;
 
+    // Track deltaTime for adaptive performance
+    GameState.setLastDeltaTime(deltaTime);
+
     // Increment frame counter for debugging and timing (keep for debugging only)
     GameState.incrementFrameCount();
 
@@ -901,13 +920,13 @@ export function updateGame(deltaTime = 1/60) {
         
         // Handle different rotations for different collectible types
         if (collectable.userData.isMagnet) {
-            // Magnet has distinctive rotation
-            collectable.rotation.y += collectable.userData.rotationSpeed;
-            collectable.rotation.x += collectable.userData.rotationSpeed * 0.5;
+            // Magnet has distinctive rotation - now deltaTime-based
+            collectable.rotation.y += Constants.MAGNET_ROTATION_SPEED_PER_SECOND * deltaTime;
+            collectable.rotation.x += Constants.MAGNET_ROTATION_SPEED_PER_SECOND * 0.5 * deltaTime;
         } else {
-            // Regular collectible rotation
-            collectable.rotation.x += 0.02;
-            collectable.rotation.y += 0.03;
+            // Regular collectible rotation - now deltaTime-based
+            collectable.rotation.x += Constants.COLLECTABLE_ROTATION_SPEED * deltaTime;
+            collectable.rotation.y += Constants.COLLECTABLE_ROTATION_SPEED * 1.5 * deltaTime;
         }
         
         if (collectable.position.z > GameState.camera.position.z + Constants.ROAD_RECYCLE_POINT_OFFSET + 5) {
@@ -1264,7 +1283,7 @@ function updateEnemyDrillBehavior(deltaTime = 1/60) {
 
     // --- Drill Bit Rotation (Visual) ---
     if (drill.children.length > 1) { // Assuming tip is the second child
-        drill.children[1].rotation.z += 0.5; // Rotate the tip around its local Z axis (which is world Y after initial rotation)
+        drill.children[1].rotation.z += Constants.DRILL_BIT_ROTATION_SPEED * deltaTime; // Now deltaTime-based
     }
 
     // --- Collision Detection ---
@@ -1642,7 +1661,14 @@ export function updatePerfectionMechanism(effectiveGameSpeed = GameState.gameSpe
     // Spawn wind particles during perfection phases
     if (GameState.currentPerfectionPhase > 0) {
         GameState.incrementWindSpawnTimer(deltaTime);
-        if (GameState.windSpawnTimer >= Constants.WIND_PARTICLE_SPAWN_RATE) {
+        
+        // Adaptive performance: adjust wind spawn rate for slower devices
+        let windSpawnRate = Constants.WIND_PARTICLE_SPAWN_RATE;
+        if (deltaTime > Constants.PERFORMANCE_DELTA_THRESHOLD) {
+            windSpawnRate *= Constants.MOBILE_WIND_SPAWN_INTERVAL_MULTIPLIER;
+        }
+        
+        if (GameState.windSpawnTimer >= windSpawnRate) {
             createWindParticle();
             GameState.resetWindSpawnTimer();
         }

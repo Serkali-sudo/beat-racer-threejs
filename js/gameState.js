@@ -18,6 +18,7 @@ export let gameSpeed = 0.15;
 export let score = 0;
 export let gameState = 'initial'; // initial, playing, gameOver
 export let frameCount = 0; // Frame counter for debugging and timing
+export let lastDeltaTime = 1/60; // Track deltaTime for performance adaptation
 
 // --- Car State ---
 export let currentLane = 1;
@@ -247,7 +248,7 @@ export function resetScore() {
 }
 
 export function incrementFrameCount() {
-    frameCount++; // Keep for debugging only, not for timing
+    frameCount++;
 }
 
 export function incrementJumpTimer(deltaTime = 1/60) {
@@ -820,4 +821,8 @@ export function resetMagnetState() {
         }
     });
     magnetCollectables = [];
+}
+
+export function setLastDeltaTime(deltaTime) {
+    lastDeltaTime = deltaTime;
 }
