@@ -3,18 +3,6 @@ import * as Constants from './constants.js';
 import * as GameState from './gameState.js';
 import * as UI from './ui.js'; // For gameOver and UI updates triggered by game logic
 
-// Mobile device detection and performance optimization
-const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) || 
-                 window.innerWidth <= 768 || 
-                 'ontouchstart' in window;
-
-// Performance scaling based on device
-const PERFORMANCE_SCALE = isMobile ? 0.6 : 1.0;
-const UPDATE_FREQUENCY_REDUCER = isMobile ? 2 : 1; // Update some systems every 2nd frame on mobile
-
-// Frame counter for performance optimization
-let performanceFrameCounter = 0;
-
 // Audio
 let audioListener, sound, audioLoader, analyser;
 const musicFile = 'assets/music/Under Neon Skies.mp3'; // Detected music file
@@ -25,25 +13,25 @@ let clock = new THREE.Clock(); // For general timing, less for direct beat sync 
 // Function to create a simple window texture
 function createWindowTexture(width, height, color) {
     const canvas = document.createElement('canvas');
-    canvas.width = Constants.MOBILE_TEXTURE_SIZE; // Use mobile-optimized texture size
-    canvas.height = Constants.MOBILE_TEXTURE_SIZE;
+    canvas.width = 256; // Texture resolution
+    canvas.height = 256;
     const ctx = canvas.getContext('2d');
 
     // Base building color (darker)
     ctx.fillStyle = new THREE.Color(color).multiplyScalar(0.1).getStyle();
     ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-    // Window properties - simplified for mobile
+    // Window properties
     const windowColor = new THREE.Color(color).getStyle();
-    const windowSpacing = 40; // Increased spacing for fewer windows
-    const windowSize = 16;    // Smaller windows
-    const windowMargin = 12;  // Larger margin
+    const windowSpacing = 32; // px
+    const windowSize = 20;    // px
+    const windowMargin = 10;  // px
 
     ctx.fillStyle = windowColor;
 
     for (let y = windowMargin; y < canvas.height - windowMargin - windowSize; y += windowSpacing) {
         for (let x = windowMargin; x < canvas.width - windowMargin - windowSize; x += windowSpacing) {
-            if (Math.random() > 0.4) { // Skip more windows for mobile performance
+            if (Math.random() > 0.3) { // Randomly skip some windows for variation
                 ctx.fillRect(x, y, windowSize, windowSize);
             }
         }
@@ -52,8 +40,10 @@ function createWindowTexture(width, height, color) {
     const texture = new THREE.CanvasTexture(canvas);
     texture.wrapS = THREE.RepeatWrapping;
     texture.wrapT = THREE.RepeatWrapping;
-    // Simplified repeat calculation for mobile
-    texture.repeat.set(Math.max(1, Math.round(width / 6)), Math.max(1, Math.round(height / 8)));
+    // Repeat based on building dimensions for a somewhat consistent window density
+    // These are approximate, fine-tune as needed
+    texture.repeat.set(Math.max(1, Math.round(width / 4)), Math.max(1, Math.round(height / 5)));
+    // texture.needsUpdate = true; // needsUpdate is handled by CanvasTexture constructor now
     return texture;
 }
 
@@ -62,17 +52,18 @@ export function createStreetLight(targetZ, onLeftSide) {
 
     const streetLightGroup = new THREE.Group();
 
-    // Use simpler material for mobile
-    const poleMaterial = new THREE.MeshBasicMaterial({
-        color: 0x333340
+    const poleMaterial = new THREE.MeshPhongMaterial({
+        color: 0x333340, // Darker grey for pole and arm
+        shininess: 20,
+        flatShading: true
     });
 
-    // Pole - reduced segments for mobile
+    // Pole
     const poleGeometry = new THREE.CylinderGeometry(
         Constants.STREETLIGHT_POLE_RADIUS,
         Constants.STREETLIGHT_POLE_RADIUS,
         Constants.STREETLIGHT_POLE_HEIGHT,
-        Constants.REDUCED_GEOMETRY_SEGMENTS // Use mobile-optimized segments
+        8 // Segments
     );
     const pole = new THREE.Mesh(poleGeometry, poleMaterial);
     pole.position.y = Constants.STREETLIGHT_POLE_HEIGHT / 2;
@@ -80,43 +71,62 @@ export function createStreetLight(targetZ, onLeftSide) {
 
     // Arm
     const armGeometry = new THREE.BoxGeometry(
-        Constants.STREETLIGHT_ARM_THICKNESS,
-        Constants.STREETLIGHT_ARM_THICKNESS,
-        Constants.STREETLIGHT_ARM_LENGTH
+        Constants.STREETLIGHT_ARM_THICKNESS, // Width of arm (y-axis for horizontal arm)
+        Constants.STREETLIGHT_ARM_THICKNESS, // Height of arm (z-axis for horizontal arm)
+        Constants.STREETLIGHT_ARM_LENGTH    // Length of arm (x-axis)
     );
     const arm = new THREE.Mesh(armGeometry, poleMaterial);
     arm.position.y = Constants.STREETLIGHT_POLE_HEIGHT - Constants.STREETLIGHT_ARM_THICKNESS * 2;
+    // Position arm to extend towards the road
     arm.position.z = onLeftSide ? Constants.STREETLIGHT_ARM_LENGTH / 2 : -Constants.STREETLIGHT_ARM_LENGTH / 2;
+    // arm.rotation.x = onLeftSide ? Math.PI / 2 : -Math.PI / 2; // Rotate to be horizontal if using Cylinder
     streetLightGroup.add(arm);
 
-    // Light Fixture - simplified for mobile
+
+    // Light Fixture (the part that glows)
     const fixtureGeometry = new THREE.CylinderGeometry(
         Constants.STREETLIGHT_FIXTURE_RADIUS,
-        Constants.STREETLIGHT_FIXTURE_RADIUS * 0.8,
+        Constants.STREETLIGHT_FIXTURE_RADIUS * 0.8, // Slightly tapered
         Constants.STREETLIGHT_FIXTURE_HEIGHT,
-        Constants.REDUCED_GEOMETRY_SEGMENTS
+        8 // Segments
     );
-    const fixtureMaterial = new THREE.MeshBasicMaterial({
+    const fixtureMaterial = new THREE.MeshPhongMaterial({
         color: Constants.STREETLIGHT_EMISSIVE_COLOR,
-        // Remove emissive for mobile performance - just use bright color
+        emissive: Constants.STREETLIGHT_EMISSIVE_COLOR,
+        emissiveIntensity: Constants.STREETLIGHT_EMISSIVE_INTENSITY,
+        shininess: 80
     });
     const fixture = new THREE.Mesh(fixtureGeometry, fixtureMaterial);
+    // Position fixture at the end of the arm, pointing down
     fixture.position.y = arm.position.y - Constants.STREETLIGHT_FIXTURE_HEIGHT / 2 - Constants.STREETLIGHT_ARM_THICKNESS / 2;
     fixture.position.z = arm.position.z;
+    // fixture.rotation.x = Math.PI / 2; // Pointing down if using default cylinder orientation
     streetLightGroup.add(fixture);
 
-    // Skip point light for mobile performance
-    
+    // Point Light for illumination (optional)
+    if (Constants.STREETLIGHT_POINTLIGHT_ENABLED) {
+        const pointLight = new THREE.PointLight(
+            Constants.STREETLIGHT_POINTLIGHT_COLOR,
+            Constants.STREETLIGHT_POINTLIGHT_INTENSITY,
+            Constants.STREETLIGHT_POINTLIGHT_DISTANCE
+        );
+        pointLight.position.set(fixture.position.x, fixture.position.y - Constants.STREETLIGHT_FIXTURE_HEIGHT * 0.5, fixture.position.z);
+        pointLight.castShadow = Constants.STREETLIGHT_POINTLIGHT_CAST_SHADOW;
+        streetLightGroup.add(pointLight);
+    }
+
     // Position the entire streetlight group
     const roadOuterEdgeX = (Constants.LANE_WIDTH * Constants.LANE_COUNT) / 2 + Constants.STREETLIGHT_SIDE_OFFSET;
     streetLightGroup.position.x = onLeftSide ? -roadOuterEdgeX : roadOuterEdgeX;
+    // Y position is effectively handled by pole.position.y, group base is at 0
     streetLightGroup.position.z = targetZ;
     
+    // Rotate arm and fixture to face road correctly based on side
     if (!onLeftSide) {
         streetLightGroup.rotation.y = Math.PI;
     }
 
-    // Disable shadows for mobile
+    // Shadows (pole and arm can cast, fixture (emissive) usually doesn't)
     pole.castShadow = false;
     pole.receiveShadow = false;
     arm.castShadow = false;
@@ -131,47 +141,58 @@ export function createStreetLight(targetZ, onLeftSide) {
 export function createEnemyDrill() {
     const drillGroup = new THREE.Group();
 
-    // Simplified material for mobile
-    const bodyMaterial = new THREE.MeshBasicMaterial({
-        color: Constants.DRILL_COLOR
+    // Body Material
+    const bodyMaterial = new THREE.MeshPhongMaterial({
+        color: Constants.DRILL_COLOR,
+        shininess: 70,
+        flatShading: true
     });
 
-    // Body Geometry - reduced segments for mobile
+    // Body Geometry
     const bodyGeometry = new THREE.CylinderGeometry(
-        Constants.DRILL_BODY_RADIUS * Constants.DRILL_BODY_RADIUS_FRONT_FACTOR,
-        Constants.DRILL_BODY_RADIUS,
+        Constants.DRILL_BODY_RADIUS * Constants.DRILL_BODY_RADIUS_FRONT_FACTOR, // radiusTop (narrower front)
+        Constants.DRILL_BODY_RADIUS, // radiusBottom (wider back)
         Constants.DRILL_BODY_LENGTH,
-        Constants.REDUCED_GEOMETRY_SEGMENTS * 2 // Slightly more segments for drill
+        12 // Segments
     );
     const body = new THREE.Mesh(bodyGeometry, bodyMaterial);
-    body.rotation.x = Math.PI / 2;
+    body.rotation.x = Math.PI / 2; // Rotate to be horizontal
     drillGroup.add(body);
 
-    // Tip Material - simplified for mobile
-    const tipMaterial = new THREE.MeshBasicMaterial({
-        color: Constants.DRILL_TIP_COLOR
+    // Tip Material
+    const tipMaterial = new THREE.MeshPhongMaterial({
+        color: Constants.DRILL_TIP_COLOR,
+        emissive: Constants.DRILL_EMISSIVE_COLOR,
+        emissiveIntensity: Constants.DRILL_EMISSIVE_INTENSITY,
+        shininess: 90,
+        flatShading: true
     });
 
-    // Tip Geometry - reduced segments for mobile
+    // Tip Geometry (Cone)
     const tipGeometry = new THREE.ConeGeometry(
         Constants.DRILL_TIP_RADIUS,
         Constants.DRILL_TIP_LENGTH,
-        Constants.REDUCED_GEOMETRY_SEGMENTS * 2
+        12 // Segments
     );
     const tip = new THREE.Mesh(tipGeometry, tipMaterial);
-    tip.rotation.x = Math.PI / 2;
+    tip.rotation.x = Math.PI / 2; // Rotate to align with body
+    // Position tip at the front of the body
     tip.position.z = Constants.DRILL_BODY_LENGTH / 2 + Constants.DRILL_TIP_LENGTH / 2;
     drillGroup.add(tip);
 
-    drillGroup.rotation.y = Math.PI;
-    drillGroup.userData.currentSpeed = 0;
+    drillGroup.rotation.y = Math.PI; // Rotate 180 degrees to face correctly
+
+    // Initial position will be set by the spawning logic in updateEnemyDrillBehavior
+    // drillGroup.position.set(0, Constants.DRILL_BODY_RADIUS, GameState.camera.position.z + Constants.DRILL_INITIAL_Z_OFFSET); 
+    
+    drillGroup.userData.currentSpeed = 0; // Custom property to track drill's speed
 
     GameState.scene.add(drillGroup);
     GameState.setEnemyDrill(drillGroup);
-    GameState.setEnemyDrillState('maneuvering');
+    GameState.setEnemyDrillState('maneuvering'); // New state: get behind car
     GameState.resetDrillSpawnCheckTimer();
 
-    return drillGroup;
+    return drillGroup; // Return for direct manipulation if needed by caller
 }
 
 // Utility function to check if a spawn position conflicts with existing objects
@@ -235,15 +256,14 @@ function findOptimalSpawnPosition(preferredZ) {
 }
 
 export function createObstacle() {
-    // Simplified material for mobile
-    const obstacleMaterial = new THREE.MeshBasicMaterial({
-        color: 0xff2222
+    const obstacleMaterial = new THREE.MeshPhongMaterial({
+        color: 0xff2222,
+        emissive: 0xaa0000,
+        emissiveIntensity: 0.6,
+        shininess: 60,
+        flatShading: true
     });
-    const obstacleGeometry = new THREE.ConeGeometry(
-        Constants.OBSTACLE_SPIKE_RADIUS, 
-        Constants.OBSTACLE_SPIKE_HEIGHT, 
-        Constants.OBSTACLE_SPIKE_SEGMENTS
-    );
+    const obstacleGeometry = new THREE.ConeGeometry(Constants.OBSTACLE_SPIKE_RADIUS, Constants.OBSTACLE_SPIKE_HEIGHT, Constants.OBSTACLE_SPIKE_SEGMENTS);
     const obstacle = new THREE.Mesh(obstacleGeometry, obstacleMaterial);
 
     const preferredSpawnZ = GameState.camera.position.z + Constants.SPAWN_Z_OFFSET - Constants.CAMERA_DISTANCE_BEHIND;
@@ -256,7 +276,7 @@ export function createObstacle() {
     );
 
     const originalY = Constants.OBSTACLE_SPIKE_HEIGHT / 2;
-    obstacle.userData.originalY = originalY;
+    obstacle.userData.originalY = originalY; // Store original Y for beat animation
     obstacle.castShadow = false;
     obstacle.receiveShadow = false;
     GameState.scene.add(obstacle);
@@ -273,25 +293,39 @@ export function createCollectable() {
         console.warn("Could not get car size for collectable");
     }
 
+    // Decide if this should be a magnet powerup
     const isMagnet = Math.random() < Constants.MAGNET_SPAWN_CHANCE;
     
     let collectableMaterial, collectableGeometry, collectable;
     
     if (isMagnet) {
+        // Create magnet powerup
         const magnetSize = Constants.MAGNET_SIZE;
-        collectableMaterial = new THREE.MeshBasicMaterial({
-            color: Constants.MAGNET_COLOR
+        collectableMaterial = new THREE.MeshPhongMaterial({
+            color: Constants.MAGNET_COLOR,
+            emissive: Constants.MAGNET_EMISSIVE_COLOR,
+            emissiveIntensity: Constants.MAGNET_EMISSIVE_INTENSITY,
+            shininess: 100,
+            flatShading: true
         });
         collectableGeometry = new THREE.BoxGeometry(magnetSize, magnetSize * 0.3, magnetSize);
         collectable = new THREE.Mesh(collectableGeometry, collectableMaterial);
+        
+        // Mark as magnet powerup
         collectable.userData.isMagnet = true;
+        
+        // Add distinctive rotating animation
         collectable.userData.rotationSpeed = Constants.MAGNET_ROTATION_SPEED;
     } else {
-        collectableMaterial = new THREE.MeshBasicMaterial({
-            color: 0xaaaaff
+        // Create regular collectable
+        collectableMaterial = new THREE.MeshPhongMaterial({
+            color: 0xaaaaff,
+            emissive: 0x8888ff,
+            emissiveIntensity: 0.8,
+            shininess: 100,
+            flatShading: true
         });
-        // Use simpler geometry for mobile
-        collectableGeometry = new THREE.BoxGeometry(collectableSize, collectableSize, collectableSize);
+        collectableGeometry = new THREE.IcosahedronGeometry(collectableSize, 0);
         collectable = new THREE.Mesh(collectableGeometry, collectableMaterial);
         collectable.userData.isMagnet = false;
     }
@@ -320,9 +354,9 @@ export function createBuilding(targetZ, onLeftSide) {
     
     let buildingGeometry;
     let isHexagonal = false;
-    if (Math.random() < 0.3) { // Reduced chance of hexagonal buildings for mobile
+    if (Math.random() < 0.5) { 
         const radius = Math.min(width, depth) / 2;
-        buildingGeometry = new THREE.CylinderGeometry(radius, radius, height, Constants.REDUCED_GEOMETRY_SEGMENTS); 
+        buildingGeometry = new THREE.CylinderGeometry(radius, radius, height, 6); 
         isHexagonal = true;
     } else {
         buildingGeometry = new THREE.BoxGeometry(width, height, depth);
@@ -333,16 +367,22 @@ export function createBuilding(targetZ, onLeftSide) {
     
     const windowTexture = createWindowTexture(width, height, chosenColorHex);
 
-    // Simplified material for mobile
-    const buildingMaterial = new THREE.MeshBasicMaterial({
-        color: baseColor.clone().multiplyScalar(0.3), // Brighter since no emissive
-        map: windowTexture
+    const buildingMaterial = new THREE.MeshPhongMaterial({
+        color: baseColor.clone().multiplyScalar(0.05), // Darker base for windows to pop
+        map: windowTexture, // Apply window texture
+        emissive: chosenColorHex,
+        emissiveMap: windowTexture, // Make windows emissive
+        emissiveIntensity: Constants.BUILDING_EMISSIVE_INTENSITY_BASE + Math.random() * Constants.BUILDING_EMISSIVE_INTENSITY_VAR,
+        shininess: 25,
+        flatShading: true,
+        specular: new THREE.Color(chosenColorHex).multiplyScalar(0.3)
     });
 
     const building = new THREE.Mesh(buildingGeometry, buildingMaterial);
+    // Store texture for later disposal
     building.userData.windowTexture = windowTexture;
 
-    const originalBuildingY = height / 2 - 0.05;
+    const originalBuildingY = height / 2 - 0.05; // Or whatever the base Y is set to
     building.userData.originalY = originalBuildingY;
 
     const roadHalfWidth = (Constants.LANE_WIDTH * Constants.LANE_COUNT) / 2;
@@ -350,6 +390,7 @@ export function createBuilding(targetZ, onLeftSide) {
 
     let effectiveWidthForPlacement = width;
     if (isHexagonal) {
+        // For hexagonal prisms, the 'width' used for placement should be its diameter (2 * radius)
         effectiveWidthForPlacement = Math.min(width, depth); 
     }
 
@@ -365,84 +406,167 @@ export function createBuilding(targetZ, onLeftSide) {
     GameState.scene.add(building);
     GameState.addBuilding(building);
 
-    // Reduce chance of neon signs for mobile performance
-    if (Math.random() < 0.2) { // Reduced from 0.4
-        const signHeight = THREE.MathUtils.randFloat(1.0, 2.0); // Smaller signs
-        const signWidth = THREE.MathUtils.randFloat(1.5, Math.min(4, effectiveWidthForPlacement * 0.8)); // Smaller signs
-        const signDepth = 0.2; // Thinner signs
+    // Add random neon signs
+    if (Math.random() < 0.4) { // 40% chance of having a sign
+        const signHeight = THREE.MathUtils.randFloat(1.0, 3.0); // Made taller
+        const signWidth = THREE.MathUtils.randFloat(2, Math.min(6, effectiveWidthForPlacement * 0.9)); // Made wider
+        const signDepth = 0.3; // Made much thicker for better visibility
         const signGeometry = new THREE.BoxGeometry(signWidth, signHeight, signDepth);
         
         const signColorHex = Constants.NEON_BUILDING_COLORS[Math.floor(Math.random() * Constants.NEON_BUILDING_COLORS.length)];
-        const signMaterial = new THREE.MeshBasicMaterial({
-            color: signColorHex
+        const signMaterial = new THREE.MeshPhongMaterial({
+            color: new THREE.Color(signColorHex).multiplyScalar(0.2),
+            emissive: signColorHex,
+            emissiveIntensity: 2.0 + Math.random() * 1.5, // Much brighter emissive for better visibility
+            shininess: 50,
+            flatShading: true,
         });
         const sign = new THREE.Mesh(signGeometry, signMaterial);
 
-        sign.position.y = THREE.MathUtils.randFloat(height * 0.3, height * 0.7) - height / 2;
+        // Position the sign on the side of the building facing the road
+        // Always position at a reasonable height on the building
+        sign.position.y = THREE.MathUtils.randFloat(height * 0.3, height * 0.8) - height / 2; // Higher up and more centered
         
+        // Simplified positioning - place sign clearly on the road-facing side
         const roadFacingOffset = isHexagonal ? 
-            effectiveWidthForPlacement * 0.6 : 
-            effectiveWidthForPlacement / 2 + 0.2;
+            effectiveWidthForPlacement * 0.6 : // For hex buildings, place further out
+            effectiveWidthForPlacement / 2 + 0.2; // For box buildings, place on face
         
+        // Always place signs on the road-facing side with clear positioning
         if (onLeftSide) {
+            // Building is on left side of road, so road-facing side is the positive X direction
             sign.position.x = roadFacingOffset;
-            sign.rotation.y = 0;
+            sign.rotation.y = 0; // Face towards the road (positive X direction)
         } else {
+            // Building is on right side of road, so road-facing side is the negative X direction
             sign.position.x = -roadFacingOffset;
-            sign.rotation.y = Math.PI;
+            sign.rotation.y = Math.PI; // Face towards the road (negative X direction)
         }
         
+        // Add some random Z offset along the building face for variety
         sign.position.z = THREE.MathUtils.randFloat(-depth * 0.2, depth * 0.2);
 
+        // Ensure signs don't cast or receive shadows to avoid blocking other lighting
         sign.castShadow = false;
         sign.receiveShadow = false;
 
-        building.add(sign);
+        building.add(sign); // Add sign as a child of the building
     }
 }
 
 export function createPedestrian(targetZ, onLeftSide) {
     if (GameState.pedestrians.length >= Constants.MAX_ACTIVE_PEDESTRIANS) return;
 
-    // Simplified pedestrian for mobile - single mesh instead of multiple parts
-    const pedestrianGeometry = new THREE.BoxGeometry(
-        Constants.PEDESTRIAN_WIDTH,
-        Constants.PEDESTRIAN_HEIGHT,
-        Constants.PEDESTRIAN_DEPTH
-    );
+    const pedestrianGroup = new THREE.Group();
 
+    // Choose a random color for this pedestrian
     const chosenColor = Constants.PEDESTRIAN_COLORS[Math.floor(Math.random() * Constants.PEDESTRIAN_COLORS.length)];
-    const bodyMaterial = new THREE.MeshBasicMaterial({
-        color: chosenColor
+    const bodyMaterial = new THREE.MeshPhongMaterial({
+        color: chosenColor,
+        shininess: 20,
+        flatShading: true
     });
 
-    const pedestrian = new THREE.Mesh(pedestrianGeometry, bodyMaterial);
+    // Head
+    const headGeometry = new THREE.SphereGeometry(Constants.PEDESTRIAN_HEAD_RADIUS, 8, 6);
+    const head = new THREE.Mesh(headGeometry, bodyMaterial);
+    head.position.y = Constants.PEDESTRIAN_HEIGHT - Constants.PEDESTRIAN_HEAD_RADIUS;
+    pedestrianGroup.add(head);
+
+    // Body (torso)
+    const torsoHeight = Constants.PEDESTRIAN_HEIGHT * 0.4;
+    const torsoGeometry = new THREE.BoxGeometry(
+        Constants.PEDESTRIAN_WIDTH * 0.8,
+        torsoHeight,
+        Constants.PEDESTRIAN_DEPTH * 0.6
+    );
+    const torso = new THREE.Mesh(torsoGeometry, bodyMaterial);
+    torso.position.y = Constants.PEDESTRIAN_HEIGHT - Constants.PEDESTRIAN_HEAD_RADIUS * 2 - torsoHeight / 2;
+    pedestrianGroup.add(torso);
+
+    // Legs
+    const legHeight = Constants.PEDESTRIAN_HEIGHT * 0.35;
+    const legGeometry = new THREE.BoxGeometry(
+        Constants.PEDESTRIAN_WIDTH * 0.25,
+        legHeight,
+        Constants.PEDESTRIAN_DEPTH * 0.4
+    );
+    
+    const leftLeg = new THREE.Mesh(legGeometry, bodyMaterial);
+    leftLeg.position.set(
+        -Constants.PEDESTRIAN_WIDTH * 0.2,
+        legHeight / 2,
+        0
+    );
+    pedestrianGroup.add(leftLeg);
+    
+    const rightLeg = new THREE.Mesh(legGeometry, bodyMaterial);
+    rightLeg.position.set(
+        Constants.PEDESTRIAN_WIDTH * 0.2,
+        legHeight / 2,
+        0
+    );
+    pedestrianGroup.add(rightLeg);
+
+    // Arms
+    const armHeight = Constants.PEDESTRIAN_HEIGHT * 0.3;
+    const armGeometry = new THREE.BoxGeometry(
+        Constants.PEDESTRIAN_WIDTH * 0.15,
+        armHeight,
+        Constants.PEDESTRIAN_DEPTH * 0.3
+    );
+    
+    const leftArm = new THREE.Mesh(armGeometry, bodyMaterial);
+    leftArm.position.set(
+        -Constants.PEDESTRIAN_WIDTH * 0.5,
+        Constants.PEDESTRIAN_HEIGHT - Constants.PEDESTRIAN_HEAD_RADIUS * 2 - armHeight / 2,
+        0
+    );
+    pedestrianGroup.add(leftArm);
+    
+    const rightArm = new THREE.Mesh(armGeometry, bodyMaterial);
+    rightArm.position.set(
+        Constants.PEDESTRIAN_WIDTH * 0.5,
+        Constants.PEDESTRIAN_HEIGHT - Constants.PEDESTRIAN_HEAD_RADIUS * 2 - armHeight / 2,
+        0
+    );
+    pedestrianGroup.add(rightArm);
+
+    // Store references for animation
+    pedestrianGroup.userData.leftLeg = leftLeg;
+    pedestrianGroup.userData.rightLeg = rightLeg;
+    pedestrianGroup.userData.leftArm = leftArm;
+    pedestrianGroup.userData.rightArm = rightArm;
+    pedestrianGroup.userData.animationOffset = Math.random() * Math.PI * 2; // Random starting animation phase
 
     // Position on sidewalk
     const roadHalfWidth = (Constants.LANE_WIDTH * Constants.LANE_COUNT) / 2;
     const sidewalkX = roadHalfWidth + Constants.PEDESTRIAN_SIDEWALK_OFFSET_FROM_ROAD;
     
-    pedestrian.position.x = onLeftSide ? -sidewalkX : sidewalkX;
-    pedestrian.position.y = Constants.PEDESTRIAN_HEIGHT / 2;
-    pedestrian.position.z = targetZ;
+    pedestrianGroup.position.x = onLeftSide ? -sidewalkX : sidewalkX;
+    pedestrianGroup.position.y = 0;
+    pedestrianGroup.position.z = targetZ;
 
     // Random walking speed and direction
     const walkSpeed = THREE.MathUtils.randFloat(Constants.PEDESTRIAN_WALK_SPEED_MIN, Constants.PEDESTRIAN_WALK_SPEED_MAX);
-    const walkDirection = Math.random() < 0.5 ? 1 : -1;
-    pedestrian.userData.walkSpeed = walkSpeed * walkDirection;
+    const walkDirection = Math.random() < 0.5 ? 1 : -1; // Forward or backward along the sidewalk
+    pedestrianGroup.userData.walkSpeed = walkSpeed * walkDirection;
     
+    // Face the walking direction
     if (walkDirection < 0) {
-        pedestrian.rotation.y = Math.PI;
+        pedestrianGroup.rotation.y = Math.PI;
     }
 
-    // Simplified animation data
-    pedestrian.userData.animationOffset = Math.random() * Math.PI * 2;
+    // Add shadows
+    pedestrianGroup.traverse(object => {
+        if (object.isMesh) {
+            object.castShadow = false;
+            object.receiveShadow = false;
+        }
+    });
 
-    pedestrian.castShadow = false;
-    pedestrian.receiveShadow = false;
-
-    GameState.scene.add(pedestrian);
-    GameState.addPedestrian(pedestrian);
+    GameState.scene.add(pedestrianGroup);
+    GameState.addPedestrian(pedestrianGroup);
 }
 
 export function createTrailParticle(xOffset = 0) {
@@ -548,57 +672,34 @@ export function updateTrail(effectiveGameSpeed = GameState.gameSpeed, deltaTime 
 
     GameState.incrementTrailSpawnTimer(deltaTime);
     
-    // Enhanced trail spawning during perfection phases - reduced on mobile
+    // Enhanced trail spawning during perfection phases
     let trailSpawnInterval = Constants.TRAIL_SPAWN_INTERVAL;
     if (GameState.currentPerfectionPhase > 0) {
         trailSpawnInterval *= Constants.PERFECTION_TRAIL_SPAWN_RATE_MULTIPLIER;
     }
     
-    // Additional mobile optimization - spawn less frequently
-    if (isMobile) {
-        trailSpawnInterval *= 1.5; // 50% less frequent on mobile
-    }
-    
     if (GameState.trailSpawnTimer >= trailSpawnInterval) {
-        if (isMobile) {
-            // Simplified trail for mobile - only spawn center trail during perfection phases
-            if (GameState.currentPerfectionPhase > 0) {
-                createTrailParticle(0); // Center trail only
-            } else {
-                // Regular trail - reduced particles
-                createTrailParticle(-Constants.TRAIL_HALF_WIDTH * 0.7);
-                createTrailParticle(Constants.TRAIL_HALF_WIDTH * 0.7);
-            }
-        } else {
-            // Desktop - full trail system
-            createTrailParticle(-Constants.TRAIL_HALF_WIDTH);
-            createTrailParticle(Constants.TRAIL_HALF_WIDTH);
-            
-            // Spawn additional trail particles during higher perfection phases
-            if (GameState.currentPerfectionPhase >= 2) {
-                createTrailParticle(-Constants.TRAIL_HALF_WIDTH * 1.5);
-                createTrailParticle(Constants.TRAIL_HALF_WIDTH * 1.5);
-            }
-            if (GameState.currentPerfectionPhase >= 3) {
-                createTrailParticle(0); // Center trail for phase 3
-            }
+        createTrailParticle(-Constants.TRAIL_HALF_WIDTH);
+        createTrailParticle(Constants.TRAIL_HALF_WIDTH);
+        
+        // Spawn additional trail particles during higher perfection phases
+        if (GameState.currentPerfectionPhase >= 2) {
+            createTrailParticle(-Constants.TRAIL_HALF_WIDTH * 1.5);
+            createTrailParticle(Constants.TRAIL_HALF_WIDTH * 1.5);
+        }
+        if (GameState.currentPerfectionPhase >= 3) {
+            createTrailParticle(0); // Center trail for phase 3
         }
         
         GameState.resetTrailSpawnTimer();
     }
 
-    // Update trail particles - reduced frequency on mobile
-    const updateTrailParticles = !isMobile || performanceFrameCounter % UPDATE_FREQUENCY_REDUCER === 0;
-    
     for (let i = GameState.trailParticles.length - 1; i >= 0; i--) {
         const p = GameState.trailParticles[i];
         p.life -= deltaTime;
 
         p.mesh.position.z += effectiveGameSpeed;
-        
-        if (updateTrailParticles) {
-            p.mesh.material.opacity = Math.max(0, (p.life / Constants.TRAIL_PARTICLE_LIFESPAN) * p.initialOpacity);
-        }
+        p.mesh.material.opacity = Math.max(0, (p.life / Constants.TRAIL_PARTICLE_LIFESPAN) * p.initialOpacity);
 
         if (p.life <= 0) {
             GameState.scene.remove(p.mesh);
@@ -665,8 +766,9 @@ function updatePedestrians(effectiveGameSpeed = GameState.gameSpeed) {
         // Move with road and their own walking speed
         pedestrian.position.z += effectiveGameSpeed + pedestrian.userData.walkSpeed;
         
-        // Simplified walking animation for mobile - just rotation and slight scaling
+        // Walking animation synced to music if available
         let animSpeed = Constants.PEDESTRIAN_ANIMATION_SPEED;
+        let animAmplitudeFactor = 1.0;
         if (analyser) {
             const data = analyser.getFrequencyData(); 
             let lowerFreqAvg = 0;
@@ -678,25 +780,36 @@ function updatePedestrians(effectiveGameSpeed = GameState.gameSpeed) {
 
             const normalizedBeat = Math.min(1, Math.max(0, (lowerFreqAvg - Constants.MUSIC_BEAT_THRESHOLD) / Constants.MUSIC_BEAT_SENSITIVITY));
             
-            // Simple beat response for mobile - just speed up movement slightly
-            animSpeed = Constants.PEDESTRIAN_ANIMATION_SPEED * (1.0 + normalizedBeat * 0.3);
+            // Speed up animation on beat and increase amplitude, but less aggressively
+            animSpeed = Constants.PEDESTRIAN_ANIMATION_SPEED * (1.0 + normalizedBeat * Constants.PEDESTRIAN_BEAT_SPEED_MULTIPLIER);
+            animAmplitudeFactor = 1.0 + normalizedBeat * Constants.PEDESTRIAN_BEAT_AMPLITUDE_MULTIPLIER;
         }
         
-        const time = Date.now() * 0.001;
+        const time = Date.now() * 0.001; // Convert to seconds
         const animPhase = time * animSpeed + pedestrian.userData.animationOffset;
         
-        // Simplified animation - just a slight bounce/sway for walking
-        const bounce = Math.sin(animPhase * 4) * 0.05; // Small vertical bounce
-        const sway = Math.sin(animPhase * 2) * 0.02; // Small side-to-side sway
+        // Animate legs (alternating swing)
+        if (pedestrian.userData.leftLeg && pedestrian.userData.rightLeg) {
+            pedestrian.userData.leftLeg.rotation.x = Math.sin(animPhase) * Constants.PEDESTRIAN_LEG_SWING_AMPLITUDE * animAmplitudeFactor;
+            pedestrian.userData.rightLeg.rotation.x = Math.sin(animPhase + Math.PI) * Constants.PEDESTRIAN_LEG_SWING_AMPLITUDE * animAmplitudeFactor;
+        }
         
-        pedestrian.position.y = Constants.PEDESTRIAN_HEIGHT / 2 + bounce;
-        pedestrian.rotation.z = sway;
+        // Animate arms (opposite to legs for natural walking motion)
+        if (pedestrian.userData.leftArm && pedestrian.userData.rightArm) {
+            pedestrian.userData.leftArm.rotation.x = Math.sin(animPhase + Math.PI) * Constants.PEDESTRIAN_ARM_SWING_AMPLITUDE * animAmplitudeFactor;
+            pedestrian.userData.rightArm.rotation.x = Math.sin(animPhase) * Constants.PEDESTRIAN_ARM_SWING_AMPLITUDE * animAmplitudeFactor;
+        }
 
         // Remove pedestrians that are too far behind
         if (pedestrian.position.z > GameState.camera.position.z + Constants.ROAD_RECYCLE_POINT_OFFSET + Constants.PEDESTRIAN_RECYCLE_EXTRA_OFFSET) {
             GameState.scene.remove(pedestrian);
-            if (pedestrian.geometry) pedestrian.geometry.dispose();
-            if (pedestrian.material) pedestrian.material.dispose();
+            pedestrian.traverse(object => {
+                if (object.geometry) object.geometry.dispose();
+                if (object.material) {
+                    if (Array.isArray(object.material)) object.material.forEach(m => m.dispose());
+                    else object.material.dispose();
+                }
+            });
             GameState.removePedestrian(i);
         }
     }
@@ -704,9 +817,6 @@ function updatePedestrians(effectiveGameSpeed = GameState.gameSpeed) {
 
 export function updateGame(deltaTime = 1/60) {
     if (GameState.gameState !== 'playing') return;
-
-    // Increment performance frame counter
-    performanceFrameCounter++;
 
     // Increment frame counter for debugging and timing (keep for debugging only)
     GameState.incrementFrameCount();
@@ -728,34 +838,37 @@ export function updateGame(deltaTime = 1/60) {
         const obstacle = GameState.obstacles[i];
         obstacle.position.z += effectiveGameSpeed;
 
-        // Beat-synced vertical movement - reduced frequency on mobile
-        if (!isMobile || performanceFrameCounter % UPDATE_FREQUENCY_REDUCER === 0) {
-            if (analyser) {
-                const data = analyser.getFrequencyData(); 
-                let lowerFreqAvg = 0;
-                const lowerBandCount = Math.floor(data.length * Constants.MUSIC_LOWER_BAND_RATIO);
-                for (let j = 0; j < lowerBandCount; j++) {
-                    lowerFreqAvg += data[j];
-                }
-                lowerFreqAvg /= (lowerBandCount || 1); 
-
-                const normalizedBeat = Math.min(1, Math.max(0, (lowerFreqAvg - Constants.MUSIC_BEAT_THRESHOLD) / Constants.MUSIC_BEAT_SENSITIVITY));
-                
-                // Reduced logging frequency for mobile
-                if (GameState.frameCount % (isMobile ? 120 : 60) === 0 && i === 0) { 
-                    console.log(`TUNING: lowerFreqAvg: ${lowerFreqAvg.toFixed(2)}, beatThreshold: ${Constants.MUSIC_BEAT_THRESHOLD}, normalizedBeat: ${normalizedBeat.toFixed(2)}`);
-                }
-
-                const targetJumpHeight = Constants.OBSTACLE_SPIKE_HEIGHT * Constants.OBSTACLE_BEAT_JUMP_FACTOR * normalizedBeat * PERFORMANCE_SCALE;
-                const targetY = obstacle.userData.originalY + targetJumpHeight;
-                
-                obstacle.position.y += (targetY - obstacle.position.y) * Constants.MUSIC_SMOOTHING_FACTOR;
-
-            } else if (sound && sound.isPlaying) { 
-                const elapsedTime = clock.getElapsedTime();
-                const amplitude = Constants.OBSTACLE_SPIKE_HEIGHT * Constants.OBSTACLE_FALLBACK_AMPLITUDE_FACTOR * PERFORMANCE_SCALE; 
-                obstacle.position.y = obstacle.userData.originalY + Math.sin(elapsedTime * Math.PI * Constants.MUSIC_FALLBACK_BEAT_FREQUENCY) * amplitude;
+        // Beat-synced vertical movement
+        if (analyser) {
+            const data = analyser.getFrequencyData(); 
+            let lowerFreqAvg = 0;
+            const lowerBandCount = Math.floor(data.length * Constants.MUSIC_LOWER_BAND_RATIO);
+            for (let j = 0; j < lowerBandCount; j++) {
+                lowerFreqAvg += data[j];
             }
+            lowerFreqAvg /= (lowerBandCount || 1); 
+
+            // --- TUNING AREA --- 
+            // !!!! LOOK AT YOUR CONSOLE LOGS FOR `lowerFreqAvg` !!!!
+            // `MUSIC_BEAT_THRESHOLD` MUST BE HIGHER than `lowerFreqAvg` during NON-BEAT parts of your song.
+            // If `lowerFreqAvg` is e.g. 120 in quiet parts, set `MUSIC_BEAT_THRESHOLD` to 130 or 140.
+            // --- END TUNING AREA ---
+
+            const normalizedBeat = Math.min(1, Math.max(0, (lowerFreqAvg - Constants.MUSIC_BEAT_THRESHOLD) / Constants.MUSIC_BEAT_SENSITIVITY));
+            
+            if (GameState.frameCount % 60 === 0 && i === 0) { 
+                console.log(`TUNING: lowerFreqAvg: ${lowerFreqAvg.toFixed(2)}, beatThreshold: ${Constants.MUSIC_BEAT_THRESHOLD}, normalizedBeat: ${normalizedBeat.toFixed(2)}`);
+            }
+
+            const targetJumpHeight = Constants.OBSTACLE_SPIKE_HEIGHT * Constants.OBSTACLE_BEAT_JUMP_FACTOR * normalizedBeat;
+            const targetY = obstacle.userData.originalY + targetJumpHeight;
+            
+            obstacle.position.y += (targetY - obstacle.position.y) * Constants.MUSIC_SMOOTHING_FACTOR;
+
+        } else if (sound && sound.isPlaying) { 
+            const elapsedTime = clock.getElapsedTime();
+            const amplitude = Constants.OBSTACLE_SPIKE_HEIGHT * Constants.OBSTACLE_FALLBACK_AMPLITUDE_FACTOR; 
+            obstacle.position.y = obstacle.userData.originalY + Math.sin(elapsedTime * Math.PI * Constants.MUSIC_FALLBACK_BEAT_FREQUENCY) * amplitude;
         }
 
         if (obstacle.position.z > GameState.camera.position.z + Constants.ROAD_RECYCLE_POINT_OFFSET + 5) {
@@ -786,17 +899,15 @@ export function updateGame(deltaTime = 1/60) {
         
         collectable.position.z += effectiveGameSpeed;
         
-        // Handle different rotations for different collectible types - reduced frequency on mobile
-        if (!isMobile || performanceFrameCounter % UPDATE_FREQUENCY_REDUCER === 0) {
-            if (collectable.userData.isMagnet) {
-                // Magnet has distinctive rotation
-                collectable.rotation.y += collectable.userData.rotationSpeed;
-                collectable.rotation.x += collectable.userData.rotationSpeed * 0.5;
-            } else {
-                // Regular collectible rotation
-                collectable.rotation.x += 0.02;
-                collectable.rotation.y += 0.03;
-            }
+        // Handle different rotations for different collectible types
+        if (collectable.userData.isMagnet) {
+            // Magnet has distinctive rotation
+            collectable.rotation.y += collectable.userData.rotationSpeed;
+            collectable.rotation.x += collectable.userData.rotationSpeed * 0.5;
+        } else {
+            // Regular collectible rotation
+            collectable.rotation.x += 0.02;
+            collectable.rotation.y += 0.03;
         }
         
         if (collectable.position.z > GameState.camera.position.z + Constants.ROAD_RECYCLE_POINT_OFFSET + 5) {
@@ -812,63 +923,61 @@ export function updateGame(deltaTime = 1/60) {
         GameState.decrementMagnetTimer(deltaTime);
     }
 
-    // Move and recycle buildings - reduced frequency on mobile
-    if (!isMobile || performanceFrameCounter % UPDATE_FREQUENCY_REDUCER === 0) {
-        for (let i = GameState.buildings.length - 1; i >= 0; i--) {
-            const building = GameState.buildings[i];
-            building.position.z += effectiveGameSpeed;
+    // Move and recycle buildings
+    for (let i = GameState.buildings.length - 1; i >= 0; i--) {
+        const building = GameState.buildings[i];
+        building.position.z += effectiveGameSpeed;
 
-            // --- Building Beat Animation --- 
-            if (analyser && building.userData.originalY !== undefined) {
-                const data = analyser.getFrequencyData(); 
-                let lowerFreqAvg = 0;
-                const lowerBandCount = Math.floor(data.length * Constants.MUSIC_LOWER_BAND_RATIO);
-                for (let j = 0; j < lowerBandCount; j++) {
-                    lowerFreqAvg += data[j];
-                }
-                lowerFreqAvg /= (lowerBandCount || 1); 
-
-                // Using the same TUNING AREA parameters as obstacles
-                const normalizedBeat = Math.min(1, Math.max(0, (lowerFreqAvg - Constants.MUSIC_BEAT_THRESHOLD) / Constants.MUSIC_BEAT_SENSITIVITY));
-                
-                // Use building's actual height for jump scale, if available
-                const buildingHeight = building.geometry.parameters.height || 10; // Fallback height
-                const targetJumpHeight = buildingHeight * Constants.BUILDING_BEAT_JUMP_FACTOR * normalizedBeat * PERFORMANCE_SCALE; 
-                const targetY = building.userData.originalY + targetJumpHeight;
-                
-                building.position.y += (targetY - building.position.y) * Constants.MUSIC_SMOOTHING_FACTOR;
+        // --- Building Beat Animation --- 
+        if (analyser && building.userData.originalY !== undefined) {
+            const data = analyser.getFrequencyData(); 
+            let lowerFreqAvg = 0;
+            const lowerBandCount = Math.floor(data.length * Constants.MUSIC_LOWER_BAND_RATIO);
+            for (let j = 0; j < lowerBandCount; j++) {
+                lowerFreqAvg += data[j];
             }
-            // --- End Building Beat Animation ---
+            lowerFreqAvg /= (lowerBandCount || 1); 
 
-            // Check if 'depth' parameter exists, otherwise use a fallback or skip disposal for this dimension
-            const buildingDepth = building.geometry.parameters.depth || (building.geometry.parameters.radiusBottom * 2) || 2; // Fallback for Cylinder
-
-            if (building.position.z - buildingDepth / 2 > GameState.camera.position.z + Constants.ROAD_RECYCLE_POINT_OFFSET + Constants.BUILDING_RECYCLE_EXTRA_OFFSET) {
-                GameState.scene.remove(building);
-                if (building.geometry) building.geometry.dispose();
-                if (building.userData.windowTexture) building.userData.windowTexture.dispose(); // Dispose texture
-                
-                // Dispose materials of building and its children (signs)
-                building.traverse(object => {
-                    if (object.isMesh && object.material) {
-                        if (Array.isArray(object.material)) {
-                            object.material.forEach(m => {
-                                if (m.map) m.map.dispose();
-                                if (m.emissiveMap) m.emissiveMap.dispose();
-                                m.dispose();
-                            });
-                        } else {
-                            if (object.material.map) object.material.map.dispose();
-                            if (object.material.emissiveMap) object.material.emissiveMap.dispose();
-                            object.material.dispose();
-                        }
-                    }
-                });
-                GameState.removeBuilding(i);
-            }
+            // Using the same TUNING AREA parameters as obstacles
+            const normalizedBeat = Math.min(1, Math.max(0, (lowerFreqAvg - Constants.MUSIC_BEAT_THRESHOLD) / Constants.MUSIC_BEAT_SENSITIVITY));
+            
+            // Use building's actual height for jump scale, if available
+            const buildingHeight = building.geometry.parameters.height || 10; // Fallback height
+            const targetJumpHeight = buildingHeight * Constants.BUILDING_BEAT_JUMP_FACTOR * normalizedBeat; 
+            const targetY = building.userData.originalY + targetJumpHeight;
+            
+            building.position.y += (targetY - building.position.y) * Constants.MUSIC_SMOOTHING_FACTOR;
         }
-        GameState.updateLastBuildingSpawnZ(effectiveGameSpeed);
+        // --- End Building Beat Animation ---
+
+        // Check if 'depth' parameter exists, otherwise use a fallback or skip disposal for this dimension
+        const buildingDepth = building.geometry.parameters.depth || (building.geometry.parameters.radiusBottom * 2) || 2; // Fallback for Cylinder
+
+        if (building.position.z - buildingDepth / 2 > GameState.camera.position.z + Constants.ROAD_RECYCLE_POINT_OFFSET + Constants.BUILDING_RECYCLE_EXTRA_OFFSET) {
+            GameState.scene.remove(building);
+            if (building.geometry) building.geometry.dispose();
+            if (building.userData.windowTexture) building.userData.windowTexture.dispose(); // Dispose texture
+            
+            // Dispose materials of building and its children (signs)
+            building.traverse(object => {
+                if (object.isMesh && object.material) {
+                    if (Array.isArray(object.material)) {
+                        object.material.forEach(m => {
+                            if (m.map) m.map.dispose();
+                            if (m.emissiveMap) m.emissiveMap.dispose();
+                            m.dispose();
+                        });
+                    } else {
+                        if (object.material.map) object.material.map.dispose();
+                        if (object.material.emissiveMap) object.material.emissiveMap.dispose();
+                        object.material.dispose();
+                    }
+                }
+            });
+            GameState.removeBuilding(i);
+        }
     }
+    GameState.updateLastBuildingSpawnZ(effectiveGameSpeed);
 
     // Move and recycle streetlights
     for (let i = GameState.streetLights.length - 1; i >= 0; i--) {
