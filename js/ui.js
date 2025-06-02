@@ -51,10 +51,10 @@ export function hideMessage() {
     }
 }
 
-export function setInitialCanvasSize() {
+export function handleResize() {
     const maxWidth = 450; // TODO: Consider moving to constants if used elsewhere
     const availableHeight = window.innerHeight * 0.8;
-    const aspectRatio = 9 / 16;
+    const aspectRatio = 9 / 20;
     let potentialWidth = availableHeight * aspectRatio;
     let w = Math.min(window.innerWidth, maxWidth, potentialWidth);
     let h = w / aspectRatio;

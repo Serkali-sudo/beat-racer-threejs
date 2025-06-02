@@ -22,7 +22,8 @@ async function init() {
     });
 
     GameState.initThreeJS(); // Sets up scene, camera, renderer
-    UI.setInitialCanvasSize(); // Initial canvas size based on renderer and camera
+    UI.handleResize(); // Updated from setInitialCanvasSize
+    window.addEventListener('resize', UI.handleResize);
 
     GameState.createCar();
     GameState.createRoad();
