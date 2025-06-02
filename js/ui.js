@@ -51,25 +51,14 @@ export function hideMessage() {
     }
 }
 
-export function handleResize() {
-    const targetAspectRatio = 9 / 20;
-    const containerWidth = window.innerWidth;
-    const containerHeight = window.innerHeight;
-
-    let w, h;
-
-    // Calculate dimensions to fit container while maintaining aspect ratio
-    if ((containerWidth / containerHeight) > targetAspectRatio) {
-        // Window is wider than game's aspect ratio (e.g. landscape tablet for portrait game)
-        // Fit to height, width will be pillarboxed
-        h = containerHeight;
-        w = h * targetAspectRatio;
-    } else {
-        // Window is narrower or same aspect ratio as game (e.g. portrait phone for portrait game)
-        // Fit to width, height will be letterboxed (or fill if aspect ratios match)
-        w = containerWidth;
-        h = w / targetAspectRatio;
-    }
+export function setInitialCanvasSize() {
+    const maxWidth = 450; // TODO: Consider moving to constants if used elsewhere
+    const availableHeight = window.innerHeight * 0.8;
+    const aspectRatio = 9 / 16;
+    let potentialWidth = availableHeight * aspectRatio;
+    let w = Math.min(window.innerWidth, maxWidth, potentialWidth);
+    let h = w / aspectRatio;
+    h = Math.min(h, availableHeight);
 
     if (GameState.canvas) {
         GameState.canvas.style.width = `${w}px`;
