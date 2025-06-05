@@ -10,6 +10,302 @@ let clock = new THREE.Clock(); // For general timing, less for direct beat sync 
 
 // --- Object Creation ---
 
+// Trail system - now using a single ribbon geometry for better performance
+let trailRibbonLeft = null;
+let trailRibbonRight = null;
+let trailRibbonCenter = null; // For perfection phase 3
+let trailPoints = { left: [], right: [], center: [] };
+const MAX_TRAIL_POINTS = 100; // Reduced from 200 particles to 100 points for better performance
+
+function createTrailRibbon() {
+    // Create left trail ribbon
+    const leftGeometry = new THREE.BufferGeometry();
+    const leftPositions = new Float32Array(MAX_TRAIL_POINTS * 6 * 3); // 6 vertices per segment (2 triangles), 3 coords per vertex
+    const leftUvs = new Float32Array(MAX_TRAIL_POINTS * 6 * 2); // UV coordinates
+    const leftIndices = [];
+    
+    for (let i = 0; i < MAX_TRAIL_POINTS - 1; i++) {
+        const base = i * 6;
+        // Two triangles per segment
+        leftIndices.push(base, base + 1, base + 2);
+        leftIndices.push(base + 2, base + 1, base + 3);
+        leftIndices.push(base + 2, base + 3, base + 4);
+        leftIndices.push(base + 4, base + 3, base + 5);
+    }
+    
+    leftGeometry.setAttribute('position', new THREE.BufferAttribute(leftPositions, 3));
+    leftGeometry.setAttribute('uv', new THREE.BufferAttribute(leftUvs, 2));
+    leftGeometry.setIndex(leftIndices);
+    
+    let trailColor = Constants.TRAIL_COLOR;
+    let trailOpacity = Constants.TRAIL_PARTICLE_INITIAL_OPACITY;
+    
+    if (GameState.currentPerfectionPhase > 0) {
+        switch (GameState.currentPerfectionPhase) {
+            case 1: trailColor = Constants.PERFECTION_PHASE_1_COLOR; break;
+            case 2: trailColor = Constants.PERFECTION_PHASE_2_COLOR; break;
+            case 3: trailColor = Constants.PERFECTION_PHASE_3_COLOR; break;
+        }
+        trailOpacity *= Constants.PERFECTION_TRAIL_OPACITY_MULTIPLIER;
+    }
+    
+    const leftMaterial = new THREE.MeshBasicMaterial({
+        color: trailColor,
+        transparent: true,
+        opacity: trailOpacity,
+        blending: THREE.AdditiveBlending,
+        depthWrite: false,
+        side: THREE.DoubleSide
+    });
+    
+    trailRibbonLeft = new THREE.Mesh(leftGeometry, leftMaterial);
+    GameState.scene.add(trailRibbonLeft);
+    
+    // Create right trail ribbon (similar setup)
+    const rightGeometry = leftGeometry.clone();
+    const rightMaterial = leftMaterial.clone();
+    trailRibbonRight = new THREE.Mesh(rightGeometry, rightMaterial);
+    GameState.scene.add(trailRibbonRight);
+    
+    // Create center trail ribbon for perfection phase 3
+    if (GameState.currentPerfectionPhase >= 3) {
+        const centerGeometry = leftGeometry.clone();
+        const centerMaterial = leftMaterial.clone();
+        trailRibbonCenter = new THREE.Mesh(centerGeometry, centerMaterial);
+        GameState.scene.add(trailRibbonCenter);
+    }
+}
+
+function updateTrailRibbon(deltaTime = 1/60, effectiveGameSpeed = GameState.gameSpeed) {
+    if (GameState.gameState !== 'playing') return;
+    
+    // Ensure trail ribbons exist
+    if (!trailRibbonLeft || !trailRibbonRight) {
+        createTrailRibbon();
+        return;
+    }
+    
+    GameState.incrementTrailSpawnTimer(deltaTime);
+    
+    let trailSpawnInterval = Constants.TRAIL_SPAWN_INTERVAL;
+    if (GameState.currentPerfectionPhase > 0) {
+        trailSpawnInterval *= Constants.PERFECTION_TRAIL_SPAWN_RATE_MULTIPLIER;
+    }
+    
+    // Add new trail points
+    if (GameState.trailSpawnTimer >= trailSpawnInterval) {
+        const carPos = GameState.carGroup.position;
+        const trailY = carPos.y + (0.05 * Constants.CAR_SCALE);
+        const trailZ = carPos.z + Constants.CAR_MODEL_REAR_Z_OFFSET;
+        
+        // Add points for left and right trails
+        trailPoints.left.push({
+            x: carPos.x - Constants.TRAIL_HALF_WIDTH,
+            y: trailY,
+            z: trailZ,
+            life: Constants.TRAIL_PARTICLE_LIFESPAN,
+            initialLife: Constants.TRAIL_PARTICLE_LIFESPAN
+        });
+        
+        trailPoints.right.push({
+            x: carPos.x + Constants.TRAIL_HALF_WIDTH,
+            y: trailY,
+            z: trailZ,
+            life: Constants.TRAIL_PARTICLE_LIFESPAN,
+            initialLife: Constants.TRAIL_PARTICLE_LIFESPAN
+        });
+        
+        // Add center trail for perfection phase 3
+        if (GameState.currentPerfectionPhase >= 3) {
+            trailPoints.center.push({
+                x: carPos.x,
+                y: trailY,
+                z: trailZ,
+                life: Constants.TRAIL_PARTICLE_LIFESPAN,
+                initialLife: Constants.TRAIL_PARTICLE_LIFESPAN
+            });
+        }
+        
+        // Limit number of points
+        if (trailPoints.left.length > MAX_TRAIL_POINTS) {
+            trailPoints.left.shift();
+        }
+        if (trailPoints.right.length > MAX_TRAIL_POINTS) {
+            trailPoints.right.shift();
+        }
+        if (trailPoints.center.length > MAX_TRAIL_POINTS) {
+            trailPoints.center.shift();
+        }
+        
+        GameState.resetTrailSpawnTimer();
+    }
+    
+    // Update trail point life and positions
+    updateTrailPoints(trailPoints.left, deltaTime, effectiveGameSpeed);
+    updateTrailPoints(trailPoints.right, deltaTime, effectiveGameSpeed);
+    updateTrailPoints(trailPoints.center, deltaTime, effectiveGameSpeed);
+    
+    // Update trail ribbon geometries
+    updateTrailRibbonGeometry(trailRibbonLeft, trailPoints.left);
+    updateTrailRibbonGeometry(trailRibbonRight, trailPoints.right);
+    
+    if (GameState.currentPerfectionPhase >= 3 && trailRibbonCenter) {
+        updateTrailRibbonGeometry(trailRibbonCenter, trailPoints.center);
+    } else if (GameState.currentPerfectionPhase < 3 && trailRibbonCenter) {
+        // Remove center trail if not in phase 3
+        GameState.scene.remove(trailRibbonCenter);
+        if (trailRibbonCenter.geometry) trailRibbonCenter.geometry.dispose();
+        if (trailRibbonCenter.material) trailRibbonCenter.material.dispose();
+        trailRibbonCenter = null;
+        trailPoints.center = [];
+    }
+    
+    // Update trail colors for perfection phases
+    updateTrailColors();
+}
+
+function updateTrailPoints(points, deltaTime, effectiveGameSpeed) {
+    for (let i = points.length - 1; i >= 0; i--) {
+        const point = points[i];
+        point.life -= deltaTime;
+        point.z += effectiveGameSpeed * 60.0 * deltaTime;
+        
+        if (point.life <= 0) {
+            points.splice(i, 1);
+        }
+    }
+}
+
+function updateTrailRibbonGeometry(ribbon, points) {
+    if (!ribbon || points.length < 2) return;
+    
+    const positions = ribbon.geometry.attributes.position.array;
+    const uvs = ribbon.geometry.attributes.uv.array;
+    
+    // Clear the arrays
+    positions.fill(0);
+    uvs.fill(0);
+    
+    let trailWidth = Constants.TRAIL_PARTICLE_SIZE;
+    if (GameState.currentPerfectionPhase > 0) {
+        trailWidth *= Constants.PERFECTION_TRAIL_SIZE_MULTIPLIER;
+    }
+    
+    // Build ribbon geometry from points
+    for (let i = 0; i < points.length - 1 && i < MAX_TRAIL_POINTS - 1; i++) {
+        const point = points[i];
+        const nextPoint = points[i + 1];
+        
+        // Calculate opacity based on life
+        const opacity = Math.max(0, point.life / point.initialLife);
+        
+        // Calculate direction vector for ribbon width
+        const direction = new THREE.Vector3(
+            nextPoint.x - point.x,
+            nextPoint.y - point.y,
+            nextPoint.z - point.z
+        ).normalize();
+        
+        // Calculate perpendicular vector for width
+        const up = new THREE.Vector3(0, 1, 0);
+        const right = new THREE.Vector3().crossVectors(direction, up).normalize();
+        right.multiplyScalar(trailWidth * opacity * 0.5);
+        
+        // Create quad vertices
+        const baseIndex = i * 6 * 3;
+        
+        // First triangle
+        positions[baseIndex] = point.x - right.x;
+        positions[baseIndex + 1] = point.y - right.y;
+        positions[baseIndex + 2] = point.z - right.z;
+        
+        positions[baseIndex + 3] = point.x + right.x;
+        positions[baseIndex + 4] = point.y + right.y;
+        positions[baseIndex + 5] = point.z + right.z;
+        
+        positions[baseIndex + 6] = nextPoint.x - right.x;
+        positions[baseIndex + 7] = nextPoint.y - right.y;
+        positions[baseIndex + 8] = nextPoint.z - right.z;
+        
+                // Second triangle
+        positions[baseIndex + 9] = nextPoint.x - right.x;
+        positions[baseIndex + 10] = nextPoint.y - right.y;
+        positions[baseIndex + 11] = nextPoint.z - right.z;
+        
+        positions[baseIndex + 12] = point.x + right.x;
+        positions[baseIndex + 13] = point.y + right.y;
+        positions[baseIndex + 14] = point.z + right.z;
+        
+        positions[baseIndex + 15] = nextPoint.x + right.x;
+        positions[baseIndex + 16] = nextPoint.y + right.y;
+        positions[baseIndex + 17] = nextPoint.z + right.z;
+        
+        // UV coordinates
+        const baseUvIndex = i * 6 * 2;
+        const u = i / (points.length - 1);
+        uvs[baseUvIndex] = u; uvs[baseUvIndex + 1] = 0;
+        uvs[baseUvIndex + 2] = u; uvs[baseUvIndex + 3] = 1;
+        uvs[baseUvIndex + 4] = u + 0.1; uvs[baseUvIndex + 5] = 0;
+        uvs[baseUvIndex + 6] = u + 0.1; uvs[baseUvIndex + 7] = 0;
+        uvs[baseUvIndex + 8] = u; uvs[baseUvIndex + 9] = 1;
+        uvs[baseUvIndex + 10] = u + 0.1; uvs[baseUvIndex + 11] = 1;
+    }
+    
+    ribbon.geometry.attributes.position.needsUpdate = true;
+    ribbon.geometry.attributes.uv.needsUpdate = true;
+}
+
+function updateTrailColors() {
+    if (!trailRibbonLeft || !trailRibbonRight) return;
+    
+    let trailColor = Constants.TRAIL_COLOR;
+    let trailOpacity = Constants.TRAIL_PARTICLE_INITIAL_OPACITY;
+    
+    if (GameState.currentPerfectionPhase > 0) {
+        switch (GameState.currentPerfectionPhase) {
+            case 1: trailColor = Constants.PERFECTION_PHASE_1_COLOR; break;
+            case 2: trailColor = Constants.PERFECTION_PHASE_2_COLOR; break;
+            case 3: trailColor = Constants.PERFECTION_PHASE_3_COLOR; break;
+        }
+        trailOpacity *= Constants.PERFECTION_TRAIL_OPACITY_MULTIPLIER;
+    }
+    
+    trailRibbonLeft.material.color.setHex(trailColor);
+    trailRibbonLeft.material.opacity = trailOpacity;
+    trailRibbonRight.material.color.setHex(trailColor);
+    trailRibbonRight.material.opacity = trailOpacity;
+    
+    if (trailRibbonCenter) {
+        trailRibbonCenter.material.color.setHex(trailColor);
+        trailRibbonCenter.material.opacity = trailOpacity;
+    }
+}
+
+function disposeTrailSystem() {
+    if (trailRibbonLeft) {
+        GameState.scene.remove(trailRibbonLeft);
+        if (trailRibbonLeft.geometry) trailRibbonLeft.geometry.dispose();
+        if (trailRibbonLeft.material) trailRibbonLeft.material.dispose();
+        trailRibbonLeft = null;
+    }
+    
+    if (trailRibbonRight) {
+        GameState.scene.remove(trailRibbonRight);
+        if (trailRibbonRight.geometry) trailRibbonRight.geometry.dispose();
+        if (trailRibbonRight.material) trailRibbonRight.material.dispose();
+        trailRibbonRight = null;
+    }
+    
+    if (trailRibbonCenter) {
+        GameState.scene.remove(trailRibbonCenter);
+        if (trailRibbonCenter.geometry) trailRibbonCenter.geometry.dispose();
+        if (trailRibbonCenter.material) trailRibbonCenter.material.dispose();
+        trailRibbonCenter = null;
+    }
+    
+    trailPoints = { left: [], right: [], center: [] };
+}
+
 // Function to create a simple window texture
 function createWindowTexture(width, height, color) {
     const canvas = document.createElement('canvas');
@@ -569,51 +865,8 @@ export function createPedestrian(targetZ, onLeftSide) {
     GameState.addPedestrian(pedestrianGroup);
 }
 
-export function createTrailParticle(xOffset = 0) {
-    if (GameState.trailParticles.length >= Constants.TRAIL_PARTICLE_MAX_COUNT) return;
-
-    const particleGeometry = new THREE.BufferGeometry();
-    particleGeometry.setAttribute('position', new THREE.Float32BufferAttribute([0,0,0], 3));
-
-    // Enhanced trail during perfection phases
-    let trailColor = Constants.TRAIL_COLOR;
-    let trailSize = Constants.TRAIL_PARTICLE_SIZE;
-    let trailOpacity = Constants.TRAIL_PARTICLE_INITIAL_OPACITY;
-
-    if (GameState.currentPerfectionPhase > 0) {
-        // Use perfection phase color for trail
-        switch (GameState.currentPerfectionPhase) {
-            case 1: trailColor = Constants.PERFECTION_PHASE_1_COLOR; break;
-            case 2: trailColor = Constants.PERFECTION_PHASE_2_COLOR; break;
-            case 3: trailColor = Constants.PERFECTION_PHASE_3_COLOR; break;
-        }
-        trailSize *= Constants.PERFECTION_TRAIL_SIZE_MULTIPLIER;
-        trailOpacity *= Constants.PERFECTION_TRAIL_OPACITY_MULTIPLIER;
-    }
-
-    const particleMaterial = new THREE.PointsMaterial({
-        color: trailColor,
-        size: trailSize,
-        transparent: true,
-        opacity: trailOpacity,
-        sizeAttenuation: true,
-        blending: THREE.AdditiveBlending,
-        depthWrite: false
-    });
-
-    const particleMesh = new THREE.Points(particleGeometry, particleMaterial);
-
-    particleMesh.position.x = GameState.carGroup.position.x + xOffset;
-    particleMesh.position.y = GameState.carGroup.position.y + (0.05 * Constants.CAR_SCALE);
-    particleMesh.position.z = GameState.carGroup.position.z + Constants.CAR_MODEL_REAR_Z_OFFSET;
-
-    GameState.scene.add(particleMesh);
-    GameState.addTrailParticle({
-        mesh: particleMesh,
-        life: Constants.TRAIL_PARTICLE_LIFESPAN,
-        initialOpacity: trailOpacity
-    });
-}
+// Legacy trail particle function - replaced by ribbon system
+// Keeping for backward compatibility but not used anymore
 
 export function createWindParticle() {
     if (GameState.windParticles.length >= Constants.WIND_PARTICLE_COUNT) return;
@@ -668,46 +921,8 @@ export function createWindParticle() {
 // --- Game Logic Updates ---
 
 export function updateTrail(effectiveGameSpeed = GameState.gameSpeed, deltaTime = 1/60) {
-    if (GameState.gameState !== 'playing') return;
-
-    GameState.incrementTrailSpawnTimer(deltaTime);
-    
-    // Enhanced trail spawning during perfection phases
-    let trailSpawnInterval = Constants.TRAIL_SPAWN_INTERVAL;
-    if (GameState.currentPerfectionPhase > 0) {
-        trailSpawnInterval *= Constants.PERFECTION_TRAIL_SPAWN_RATE_MULTIPLIER;
-    }
-    
-    if (GameState.trailSpawnTimer >= trailSpawnInterval) {
-        createTrailParticle(-Constants.TRAIL_HALF_WIDTH);
-        createTrailParticle(Constants.TRAIL_HALF_WIDTH);
-        
-        // Spawn additional trail particles during higher perfection phases
-        if (GameState.currentPerfectionPhase >= 2) {
-            createTrailParticle(-Constants.TRAIL_HALF_WIDTH * 1.5);
-            createTrailParticle(Constants.TRAIL_HALF_WIDTH * 1.5);
-        }
-        if (GameState.currentPerfectionPhase >= 3) {
-            createTrailParticle(0); // Center trail for phase 3
-        }
-        
-        GameState.resetTrailSpawnTimer();
-    }
-
-    for (let i = GameState.trailParticles.length - 1; i >= 0; i--) {
-        const p = GameState.trailParticles[i];
-        p.life -= deltaTime;
-
-        p.mesh.position.z += effectiveGameSpeed * 60.0 * deltaTime;
-        p.mesh.material.opacity = Math.max(0, (p.life / Constants.TRAIL_PARTICLE_LIFESPAN) * p.initialOpacity);
-
-        if (p.life <= 0) {
-            GameState.scene.remove(p.mesh);
-            if (p.mesh.geometry) p.mesh.geometry.dispose();
-            if (p.mesh.material) p.mesh.material.dispose();
-            GameState.removeTrailParticle(i);
-        }
-    }
+    // New ribbon-based trail system for better performance
+    updateTrailRibbon(deltaTime, effectiveGameSpeed);
 }
 
 function updateScenerySpawning(deltaTime = 1/60) {
@@ -1354,6 +1569,10 @@ export function startGame() {
     GameState.resetEnemyDrillState(); // Reset drill on start
     GameState.resetRoadSegments();
     GameState.resetTrail();
+    
+    // Dispose old trail system and reset new ribbon system
+    disposeTrailSystem();
+    
     GameState.resetGameTimers(); // Reset timers like obstacleSpawnTimer, boostTimeout etc.
     GameState.resetScore(); // Reset score
     GameState.resetPerfectionState(); // Reset perfection mechanism
@@ -1496,6 +1715,10 @@ export function gameOver(reason = "Game Over!") {
     if (GameState.gameState === 'gameOver') return;
     GameState.setGameStateManager('gameOver');
     GameState.resetEnemyDrillState(); // Reset drill on game over
+    
+    // Dispose trail system on game over
+    disposeTrailSystem();
+    
     if (GameState.boostTimeout) clearTimeout(GameState.boostTimeout);
     GameState.setBoostTimeout(null); // Clear the timeout id
     
