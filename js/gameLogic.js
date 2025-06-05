@@ -516,7 +516,7 @@ function isSpawnPositionClear(x, z, checkRadius = Constants.SPAWN_CONFLICT_CHECK
     }
     
     return true;
-}
+} 
 
 // Enhanced spawn position check that also considers minimum spacing requirements
 function findOptimalSpawnPosition(preferredZ) {
