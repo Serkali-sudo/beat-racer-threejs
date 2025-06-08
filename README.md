@@ -2,7 +2,7 @@ A simple beat synced car game trying to imitate the old legend
 
 This game is created with cursor using gemini 2.5 pro and claude 4 sonnet.
 
-The car model and music are also ai generated. Every other objects are threejs native objects.
+The car model and music are also ai generated. Every other objects are three.js native objects.
 
 You can play it from here : https://serkali-sudo.github.io/beat-racer-threejs/
 ## Controls
