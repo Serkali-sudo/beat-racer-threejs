@@ -1,4 +1,4 @@
-A simple beat synced car race game trying to imitate the old legend named "Beat Racer".
+A simple beat synced car game trying to imitate the old legend named "Beat Racer".
 
 This game is created with cursor using gemini 2.5 pro and claude 4 sonnet.
 
