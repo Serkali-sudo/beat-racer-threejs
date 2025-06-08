@@ -5,6 +5,9 @@ import * as GameLogic from './gameLogic.js';
 import * as UI from './ui.js';
 import * as Controls from './controls.js';
 
+// Use THREE.js Clock for proper delta time
+const clock = new THREE.Clock();
+
 async function init() {
     // Initialize DOM elements and pass them to GameState
     GameState.setDomElements({
@@ -78,17 +81,15 @@ async function init() {
     animate();
 }
 
-// Delta time tracking
-let lastTime = 0;
+// FPS tracking
 let frameCounter = 0;
 let lastFPSTime = 0;
 
 function animate(currentTime = 0) {
     requestAnimationFrame(animate);
     
-    // Calculate delta time in seconds
-    const deltaTime = (currentTime - lastTime) / 1000;
-    lastTime = currentTime;
+    // Use THREE.js Clock for proper delta time
+    const deltaTime = clock.getDelta();
     
     // FPS calculation
     frameCounter++;
@@ -99,11 +100,8 @@ function animate(currentTime = 0) {
         lastFPSTime = currentTime;
     }
     
-    // Cap delta time to prevent large jumps (e.g., when tab is inactive)
-    const cappedDeltaTime = Math.min(deltaTime, 1/30); // Cap at 30 FPS minimum
-    
     if (GameState.gameState === 'playing') {
-        GameLogic.updateGame(cappedDeltaTime);
+        GameLogic.updateGame(deltaTime);
     }
     if (GameState.renderer && GameState.scene && GameState.camera) {
         GameState.renderer.render(GameState.scene, GameState.camera);

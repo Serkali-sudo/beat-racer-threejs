@@ -1031,7 +1031,7 @@ export function updatePedestrians(effectiveGameSpeed = GameState.gameSpeed, delt
     }
 }
 
-export function updateGame(deltaTime = 1/60) {
+export function updateGame(deltaTime) {
     if (GameState.gameState !== 'playing') return;
 
     // Increment frame counter for debugging and timing (keep for debugging only)
