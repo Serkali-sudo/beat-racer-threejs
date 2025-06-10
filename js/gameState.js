@@ -69,6 +69,7 @@ export let originalGameSpeed = 0;
 
 // --- Music State ---
 export let selectedMusic = null; // To store the path/name of the selected music
+export let selectedMusicName = null; // To store the display name of the selected music
 
 // Particle effects for collectables
 export let collectableBurstParticles = [];
@@ -264,6 +265,10 @@ export function resetJumpTimer() {
 // --- Music State Setter ---
 export function setSelectedMusic(musicName) {
     selectedMusic = musicName;
+}
+
+export function setSelectedMusicName(musicDisplayName) {
+    selectedMusicName = musicDisplayName;
 }
 
 // --- Initialization functions that modify state directly ---

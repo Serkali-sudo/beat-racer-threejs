@@ -1563,7 +1563,7 @@ function updateEnemyDrillBehavior(deltaTime = 1/60) {
 export function startGame() {
     console.log("GameLogic.startGame called"); // DEBUG
     GameState.setGameStateManager('playing');
-    GameState.setGameSpeed(0.15);
+    GameState.setGameSpeed(0.20);
     GameState.resetCarState();
     GameState.resetObjectArrays();
     GameState.resetEnemyDrillState(); // Reset drill on start
@@ -1586,7 +1586,21 @@ export function startGame() {
     }
 
     if (sound && !sound.isPlaying) {
-        let currentMusicToPlay = GameState.selectedMusic ? `assets/music/${GameState.selectedMusic}` : musicFile;
+        // Check if selectedMusic is a URL (uploaded file) or a filename (built-in)
+        let currentMusicToPlay;
+        if (GameState.selectedMusic) {
+            if (GameState.selectedMusic.startsWith('blob:')) {
+                // It's an uploaded file with object URL
+                currentMusicToPlay = GameState.selectedMusic;
+            } else {
+                // It's a built-in music file
+                currentMusicToPlay = `assets/music/${GameState.selectedMusic}`;
+            }
+        } else {
+            // Fallback to default
+            currentMusicToPlay = musicFile;
+        }
+        
         console.log(`Attempting to load: ${currentMusicToPlay}`); // Debug line
 
         audioLoader.load(currentMusicToPlay, function(buffer) {
@@ -1602,10 +1616,23 @@ export function startGame() {
         });
     } else if (sound && sound.isPlaying) {
         // If music is already playing, and we want to change it, we need to stop, load new, then play.
-        // This logic assumes restart might want to replay the *same* selected song or the new *selected* one.
         sound.stop();
-        // We should reload the new music if it changed
-        let currentMusicToPlay = GameState.selectedMusic ? `assets/music/${GameState.selectedMusic}` : musicFile;
+        
+        // Check if selectedMusic is a URL (uploaded file) or a filename (built-in)
+        let currentMusicToPlay;
+        if (GameState.selectedMusic) {
+            if (GameState.selectedMusic.startsWith('blob:')) {
+                // It's an uploaded file with object URL
+                currentMusicToPlay = GameState.selectedMusic;
+            } else {
+                // It's a built-in music file
+                currentMusicToPlay = `assets/music/${GameState.selectedMusic}`;
+            }
+        } else {
+            // Fallback to default
+            currentMusicToPlay = musicFile;
+        }
+        
         console.log(`Restarting with: ${currentMusicToPlay}`); // Debug line
 
         audioLoader.load(currentMusicToPlay, function(buffer) {
