@@ -437,58 +437,185 @@ export function createStreetLight(targetZ, onLeftSide) {
 export function createEnemyDrill() {
     const drillGroup = new THREE.Group();
 
-    // Body Material
+    // Create a much more dramatic drill design
+    const drillScale = 1.3; // Make it bigger but not too massive
+    
+    // Main drill body segments with spiral grooves
     const bodyMaterial = new THREE.MeshPhongMaterial({
-        color: Constants.DRILL_COLOR,
-        shininess: 70,
-        flatShading: true
+        color: 0x2a2a2a, // Darker metallic
+        shininess: 100,
+        specular: 0x666666,
+        flatShading: false // Smooth shading for better groove visibility
     });
 
-    // Body Geometry
-    const bodyGeometry = new THREE.CylinderGeometry(
-        Constants.DRILL_BODY_RADIUS * Constants.DRILL_BODY_RADIUS_FRONT_FACTOR, // radiusTop (narrower front)
-        Constants.DRILL_BODY_RADIUS, // radiusBottom (wider back)
-        Constants.DRILL_BODY_LENGTH,
-        12 // Segments
-    );
-    const body = new THREE.Mesh(bodyGeometry, bodyMaterial);
-    body.rotation.x = Math.PI / 2; // Rotate to be horizontal
-    drillGroup.add(body);
+    // Create multiple tapered segments for a more complex drill bit look
+    const numSegments = 4;
+    const totalLength = Constants.DRILL_BODY_LENGTH * drillScale;
+    const segmentLength = totalLength / numSegments;
+    
+    for (let i = 0; i < numSegments; i++) {
+        const segmentRadius = (Constants.DRILL_BODY_RADIUS * drillScale) * (1 - (i * 0.15)); // Taper more dramatically
+        const frontRadius = segmentRadius * 0.7;
+        
+        // Main segment
+        const segmentGeometry = new THREE.CylinderGeometry(
+            frontRadius, segmentRadius, segmentLength, 16
+        );
+        const segment = new THREE.Mesh(segmentGeometry, bodyMaterial);
+        segment.rotation.x = Math.PI / 2;
+        segment.position.z = (i * segmentLength) - (totalLength / 2) + (segmentLength / 2);
+        drillGroup.add(segment);
 
-    // Tip Material
+        // Add spiral grooves using torus rings
+        const numGrooves = 3;
+        const grooveMaterial = new THREE.MeshPhongMaterial({
+            color: 0x444444,
+            shininess: 80,
+            emissive: 0x111111
+        });
+
+        for (let j = 0; j < numGrooves; j++) {
+            const grooveRadius = (segmentRadius + frontRadius) / 2;
+            const grooveGeometry = new THREE.TorusGeometry(
+                grooveRadius, 0.08, 4, 12
+            );
+            const groove = new THREE.Mesh(grooveGeometry, grooveMaterial);
+            groove.rotation.x = Math.PI / 2;
+            groove.rotation.z = (j / numGrooves) * Math.PI * 0.5; // Spiral effect
+            groove.position.z = segment.position.z + ((j - numGrooves/2) * segmentLength / numGrooves) * 0.6;
+            drillGroup.add(groove);
+        }
+    }
+
+    // Create a massive drill tip with multiple stages
     const tipMaterial = new THREE.MeshPhongMaterial({
-        color: Constants.DRILL_TIP_COLOR,
+        color: 0x666600, // Darker gold
         emissive: Constants.DRILL_EMISSIVE_COLOR,
-        emissiveIntensity: Constants.DRILL_EMISSIVE_INTENSITY,
-        shininess: 90,
-        flatShading: true
+        emissiveIntensity: Constants.DRILL_EMISSIVE_INTENSITY * 1.5,
+        shininess: 120,
+        specular: 0xffaa00
     });
 
-    // Tip Geometry (Cone)
-    const tipGeometry = new THREE.ConeGeometry(
-        Constants.DRILL_TIP_RADIUS,
-        Constants.DRILL_TIP_LENGTH,
-        12 // Segments
-    );
-    const tip = new THREE.Mesh(tipGeometry, tipMaterial);
-    tip.rotation.x = Math.PI / 2; // Rotate to align with body
-    // Position tip at the front of the body
-    tip.position.z = Constants.DRILL_BODY_LENGTH / 2 + Constants.DRILL_TIP_LENGTH / 2;
-    drillGroup.add(tip);
+    // Multi-stage tip for more dramatic look
+    const tipStages = 3;
+    const baseTipRadius = Constants.DRILL_TIP_RADIUS * drillScale;
+    const tipLength = Constants.DRILL_TIP_LENGTH * drillScale;
+    
+    for (let i = 0; i < tipStages; i++) {
+        const stageRadius = baseTipRadius * (1 - (i * 0.3));
+        const stageLength = tipLength / tipStages;
+        
+        const tipGeometry = new THREE.ConeGeometry(stageRadius, stageLength, 8);
+        const tipStage = new THREE.Mesh(tipGeometry, tipMaterial);
+        tipStage.rotation.x = Math.PI / 2;
+        tipStage.position.z = (totalLength / 2) + (i * stageLength) + (stageLength / 2);
+        drillGroup.add(tipStage);
+    }
+
+    // Add glowing core running through the center (smaller)
+    const coreMaterial = new THREE.MeshBasicMaterial({
+        color: 0xff3300,
+        transparent: true,
+        opacity: 0.6
+    });
+    const coreGeometry = new THREE.CylinderGeometry(0.15, 0.08, totalLength * 1.1, 6);
+    const core = new THREE.Mesh(coreGeometry, coreMaterial);
+    core.rotation.x = Math.PI / 2;
+    drillGroup.add(core);
+
+    // Add menacing side spikes
+    const spikeMaterial = new THREE.MeshPhongMaterial({
+        color: 0x333333,
+        emissive: 0x440000,
+        emissiveIntensity: 0.5,
+        shininess: 90
+    });
+
+    const numSpikes = 8;
+    for (let i = 0; i < numSpikes; i++) {
+        const angle = (i / numSpikes) * Math.PI * 2;
+        const spikeRadius = Constants.DRILL_BODY_RADIUS * drillScale * 0.8;
+        
+        const spikeGeometry = new THREE.ConeGeometry(0.12, 0.6, 4);
+        const spike = new THREE.Mesh(spikeGeometry, spikeMaterial);
+        
+        spike.position.x = Math.cos(angle) * spikeRadius;
+        spike.position.y = Math.sin(angle) * spikeRadius;
+        spike.position.z = -(totalLength * 0.2); // Position towards the back
+        
+        // Point spikes outward
+        spike.lookAt(
+            spike.position.x * 2,
+            spike.position.y * 2,
+            spike.position.z
+        );
+        
+        drillGroup.add(spike);
+    }
+
+    // Add exhaust/thruster effects at the back
+    const exhaustMaterial = new THREE.MeshBasicMaterial({
+        color: 0x0066ff,
+        transparent: true,
+        opacity: 0.6
+    });
+    
+    const numExhausts = 4;
+    for (let i = 0; i < numExhausts; i++) {
+        const angle = (i / numExhausts) * Math.PI * 2;
+        const exhaustRadius = Constants.DRILL_BODY_RADIUS * drillScale * 0.6;
+        
+        const exhaustGeometry = new THREE.ConeGeometry(0.15, 1.0, 6);
+        const exhaust = new THREE.Mesh(exhaustGeometry, exhaustMaterial);
+        
+        exhaust.position.x = Math.cos(angle) * exhaustRadius;
+        exhaust.position.y = Math.sin(angle) * exhaustRadius;
+        exhaust.position.z = -(totalLength / 2) - 0.75; // Behind the drill
+        exhaust.rotation.x = Math.PI / 2; // Point backwards
+        
+        drillGroup.add(exhaust);
+        
+        // Store exhaust reference for animation
+        if (!drillGroup.userData.exhausts) drillGroup.userData.exhausts = [];
+        drillGroup.userData.exhausts.push(exhaust);
+    }
+
+    // Add warning lights
+    const warningMaterial = new THREE.MeshBasicMaterial({
+        color: 0xff0000,
+        emissive: 0xff0000,
+        emissiveIntensity: 2.0
+    });
+    
+    const numWarningLights = 6;
+    for (let i = 0; i < numWarningLights; i++) {
+        const angle = (i / numWarningLights) * Math.PI * 2;
+        const lightRadius = Constants.DRILL_BODY_RADIUS * drillScale * 0.9;
+        
+        const lightGeometry = new THREE.SphereGeometry(0.1, 6, 6);
+        const warningLight = new THREE.Mesh(lightGeometry, warningMaterial);
+        
+        warningLight.position.x = Math.cos(angle) * lightRadius;
+        warningLight.position.y = Math.sin(angle) * lightRadius;
+        warningLight.position.z = -(totalLength * 0.3);
+        
+        drillGroup.add(warningLight);
+        
+        // Store light reference for blinking animation
+        if (!drillGroup.userData.warningLights) drillGroup.userData.warningLights = [];
+        drillGroup.userData.warningLights.push(warningLight);
+    }
 
     drillGroup.rotation.y = Math.PI; // Rotate 180 degrees to face correctly
-
-    // Initial position will be set by the spawning logic in updateEnemyDrillBehavior
-    // drillGroup.position.set(0, Constants.DRILL_BODY_RADIUS, GameState.camera.position.z + Constants.DRILL_INITIAL_Z_OFFSET); 
-    
-    drillGroup.userData.currentSpeed = 0; // Custom property to track drill's speed
+    drillGroup.userData.currentSpeed = 0;
+    drillGroup.userData.warningTimer = 0; // For blinking lights
 
     GameState.scene.add(drillGroup);
     GameState.setEnemyDrill(drillGroup);
-    GameState.setEnemyDrillState('maneuvering'); // New state: get behind car
+    GameState.setEnemyDrillState('maneuvering');
     GameState.resetDrillSpawnCheckTimer();
 
-    return drillGroup; // Return for direct manipulation if needed by caller
+    return drillGroup;
 }
 
 // Utility function to check if a spawn position conflicts with existing objects
@@ -1405,7 +1532,8 @@ function updateEnemyDrillBehavior(deltaTime = 1/60) {
     const carPos = GameState.carGroup.position;
 
     // --- State-based Behavior & Movement ---
-    let targetZ, currentSpeed;
+    let targetZ;
+    const lerpSpeed = Constants.DRILL_Z_LERP_SPEED;
 
     // Handle deflection timer
     if (GameState.drillDeflectTimer > 0) {
@@ -1422,20 +1550,8 @@ function updateEnemyDrillBehavior(deltaTime = 1/60) {
     switch (GameState.enemyDrillState) {
         case 'maneuvering': // New state: Drill is in front, needs to get behind car
             targetZ = carPos.z + GameState.currentDrillChaseDistance; // Target is behind car
-            currentSpeed = Constants.DRILL_APPROACH_SPEED; // Use a consistent speed to get behind
-            // Drill needs to increase its Z value to get behind the car
-            if (drill.position.z < targetZ) {
-                drill.position.z += currentSpeed * 60.0 * deltaTime;
-                // If it overshoots and gets way too far behind, clamp it or transition
-                if (drill.position.z > targetZ + Constants.DRILL_MAX_CHASE_DISTANCE * 0.5) { // If it's significantly past the *initial* target
-                     drill.position.z = targetZ;
-                     GameState.setEnemyDrillState('chasing');
-                }
-            } else {
-                // Already behind or at the target Z for chase initiation
-                GameState.setEnemyDrillState('chasing');
-            }
-            if (Math.abs(drill.position.z - targetZ) < 2.0) { // Close enough to desired behind position
+            // Transition to chasing once it's in position
+            if (drill.position.z > carPos.z) { 
                  GameState.setEnemyDrillState('chasing');
             }
             break;
@@ -1443,8 +1559,6 @@ function updateEnemyDrillBehavior(deltaTime = 1/60) {
         case 'approaching': // This state might be redundant now if maneuvering handles getting behind
                           // For now, let's assume it's for when it respawns far behind after deflection
             targetZ = carPos.z + GameState.currentDrillChaseDistance;
-            currentSpeed = Constants.DRILL_APPROACH_SPEED;
-            drill.position.z -= currentSpeed * 60.0 * deltaTime; 
             if (drill.position.z <= targetZ) { 
                 GameState.setEnemyDrillState('chasing');
             }
@@ -1457,21 +1571,10 @@ function updateEnemyDrillBehavior(deltaTime = 1/60) {
                 GameState.setCurrentDrillChaseDistance(Math.max(Constants.DRILL_MIN_CHASE_DISTANCE, GameState.currentDrillChaseDistance - shrinkAmount));
             }
             targetZ = carPos.z + GameState.currentDrillChaseDistance; // Target is BEHIND car, using dynamic distance
-            
-            const desiredChaseSpeed = GameState.gameSpeed + Constants.DRILL_CHASE_SPEED_PLAYER_RELATIVE;
-            currentSpeed = Math.min(desiredChaseSpeed, Constants.DRILL_MAX_SPEED);
-            
-            if (drill.position.z > targetZ) { 
-                 drill.position.z -= currentSpeed * 60.0 * deltaTime; 
-                 drill.position.z = Math.max(drill.position.z, targetZ - 0.5); 
-            } else if (drill.position.z < targetZ - 1.0) { 
-                 drill.position.z += (currentSpeed * 0.5) * 60.0 * deltaTime; 
-            }
             break;
 
         case 'deflected':
-            currentSpeed = Constants.DRILL_RETREAT_SPEED; 
-            drill.position.z += currentSpeed * 60.0 * deltaTime; 
+            targetZ = carPos.z + Constants.DRILL_MAX_CHASE_DISTANCE * 2.5; // Retreat far behind
             // When deflected, reset its target chase distance for when it comes back
             GameState.setCurrentDrillChaseDistance(Constants.DRILL_MAX_CHASE_DISTANCE);
             if (drill.position.z > carPos.z + Math.abs(Constants.DRILL_INITIAL_Z_OFFSET) * 2) { // Retreat further if spawned in front
@@ -1481,8 +1584,7 @@ function updateEnemyDrillBehavior(deltaTime = 1/60) {
             break;
         
         case 'retreating': 
-            currentSpeed = Constants.DRILL_RETREAT_SPEED;
-            drill.position.z += currentSpeed * 60.0 * deltaTime; 
+            targetZ = carPos.z + Constants.DRILL_MAX_CHASE_DISTANCE * 2.5; // Retreat far behind
             GameState.setCurrentDrillChaseDistance(Constants.DRILL_MAX_CHASE_DISTANCE); // Reset target distance
             if (drill.position.z > carPos.z + Math.abs(Constants.DRILL_INITIAL_Z_OFFSET) * 2.5) { 
                 GameState.resetEnemyDrillState();
@@ -1490,7 +1592,12 @@ function updateEnemyDrillBehavior(deltaTime = 1/60) {
             }
             break;
     }
-    drill.userData.currentSpeed = currentSpeed;
+
+    // --- Unified Smooth Z-axis Movement ---
+    if (targetZ !== undefined) {
+        const adjustedLerpFactor = 1.0 - Math.pow(1.0 - lerpSpeed, 60.0 * deltaTime);
+        drill.position.z += (targetZ - drill.position.z) * adjustedLerpFactor;
+    }
 
     // --- X Alignment (Lane Following) ---
     const targetX = carPos.x;
@@ -1498,9 +1605,34 @@ function updateEnemyDrillBehavior(deltaTime = 1/60) {
     const adjustedDrillAlignSpeed = 1.0 - Math.pow(1.0 - drillAlignSpeed, 60.0 * deltaTime);
     drill.position.x += (targetX - drill.position.x) * adjustedDrillAlignSpeed;
 
-    // --- Drill Bit Rotation (Visual) ---
-    if (drill.children.length > 1) { // Assuming tip is the second child
-        drill.children[1].rotation.z += 0.5 * 60.0 * deltaTime; // Rotate the tip around its local Z axis (which is world Y after initial rotation)
+    // --- Enhanced Drill Animations ---
+    // Rotate the entire drill body for menacing effect at a constant speed
+    const constantDrillRotationSpeed = 10; // Radians per second
+    drill.rotation.z += constantDrillRotationSpeed * deltaTime;
+    
+    // Animate the warning lights (blinking effect)
+    drill.userData.warningTimer += deltaTime;
+    if (drill.userData.warningLights) {
+        const blinkSpeed = 3.0; // Blinks per second
+        const blinkPhase = (drill.userData.warningTimer * blinkSpeed) % 1.0;
+        const intensity = blinkPhase < 0.5 ? 2.0 : 0.5;
+        
+        drill.userData.warningLights.forEach(light => {
+            light.material.emissiveIntensity = intensity;
+        });
+    }
+    
+    // Animate exhaust effects
+    if (drill.userData.exhausts) {
+        drill.userData.exhausts.forEach((exhaust, index) => {
+            // Make exhausts pulse and flicker
+            const time = drill.userData.warningTimer + index * 0.5;
+            const pulse = 0.6 + 0.3 * Math.sin(time * 8);
+            exhaust.material.opacity = pulse;
+            
+            // Add slight movement to exhaust flames
+            exhaust.scale.y = 1.0 + 0.2 * Math.sin(time * 6);
+        });
     }
 
     // --- Collision Detection ---
@@ -1508,8 +1640,8 @@ function updateEnemyDrillBehavior(deltaTime = 1/60) {
     if (GameState.enemyDrillState !== 'inactive' && GameState.enemyDrillState !== 'retreating') {
         const distanceToCar = drill.position.distanceTo(carPos);
         
-        // Very close collision check - immediate game over
-        if (distanceToCar < 1.8) {
+        // Very close collision check - immediate game over (adjusted for scaled drill)
+        if (distanceToCar < 2.2) {
             console.log(`Drill very close collision! State: ${GameState.enemyDrillState}, Distance: ${distanceToCar.toFixed(2)}`);
             gameOver("Drilled by the enemy!");
             UI.shakeCamera(200, 0.15);
@@ -1539,7 +1671,7 @@ function updateEnemyDrillBehavior(deltaTime = 1/60) {
             
             // Additional safety check: if drill gets too close, also trigger game over
             const distanceToCar = drill.position.distanceTo(carPos);
-            if (distanceToCar < Constants.DRILL_DANGER_DISTANCE * 0.8) { // Increased threshold for emergency check
+            if (distanceToCar < Constants.DRILL_DANGER_DISTANCE * 1.0) { // Adjusted threshold for scaled drill
                 console.log("Drill emergency collision! Distance:", distanceToCar); // Debug log
                 gameOver("Drilled by the enemy!");
                 UI.shakeCamera(200, 0.15);
@@ -1549,7 +1681,7 @@ function updateEnemyDrillBehavior(deltaTime = 1/60) {
             console.error("Error in drill collision detection:", error);
             // Fallback to simple distance check if bounding box fails
             const distanceToCar = drill.position.distanceTo(carPos);
-            if (distanceToCar < 2.0) { // More generous fallback distance
+            if (distanceToCar < 2.5) { // Adjusted fallback distance for scaled drill
                 console.log("Drill fallback collision! Distance:", distanceToCar); // Debug log
                 gameOver("Drilled by the enemy!");
                 UI.shakeCamera(200, 0.15);

@@ -82,13 +82,13 @@ export const STREETLIGHT_POINTLIGHT_COLOR = 0x00ffff;
 export const STREETLIGHT_POINTLIGHT_CAST_SHADOW = false;
 
 // --- Enemy Drill Constants ---
-export const DRILL_BODY_RADIUS = 0.8; // This will now be the back radius
+export const DRILL_BODY_RADIUS = 1.0; // Scaled down from 1.2 to be less massive
 export const DRILL_BODY_RADIUS_FRONT_FACTOR = 0.7; // Factor to calculate front radius
-export const DRILL_BODY_LENGTH = 2.5;
-export const DRILL_TIP_RADIUS = 0.56; // Adjusted to match tapered body's front radius
-export const DRILL_TIP_LENGTH = 1.65; // Adjusted for a more spike-like appearance
-export const DRILL_COLOR = 0x888899; // Metallic grey
-export const DRILL_TIP_COLOR = 0xffcc00; // Warning yellow/gold
+export const DRILL_BODY_LENGTH = 3.2; // Scaled down from 4.0 to be less massive
+export const DRILL_TIP_RADIUS = 0.65; // Scaled down from 0.8
+export const DRILL_TIP_LENGTH = 2.0; // Scaled down from 2.5
+export const DRILL_COLOR = 0x888899; // Metallic grey (now used less)
+export const DRILL_TIP_COLOR = 0xffcc00; // Warning yellow/gold (now used less)
 export const DRILL_EMISSIVE_COLOR = 0xff0000; // Red glow
 export const DRILL_EMISSIVE_INTENSITY = 1.0;
 export const DRILL_SPAWN_CHANCE_PER_SECOND = 0.05; // Chance to spawn each second if not active (approx)
@@ -104,6 +104,7 @@ export const DRILL_DANGER_DISTANCE = 2.0;
 export const DRILL_DEFLECTION_DURATION = 3.0; // 3 seconds (was 180 frames)
 export const DRILL_RETREAT_SPEED = 0.4;
 export const DRILL_X_ALIGN_SPEED = 0.07; // How quickly it aligns with player's lane
+export const DRILL_Z_LERP_SPEED = 0.05; // New constant for smooth Z-axis movement
 
 // --- Pedestrian Constants ---
 export const PEDESTRIAN_HEIGHT = 1.7;
