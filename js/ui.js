@@ -52,17 +52,34 @@ export function hideMessage() {
 }
 
 export function setInitialCanvasSize() {
-    const maxWidth = 450; // TODO: Consider moving to constants if used elsewhere
-    const availableHeight = window.innerHeight * 0.8;
     const aspectRatio = 9 / 16;
-    let potentialWidth = availableHeight * aspectRatio;
-    let w = Math.min(window.innerWidth, maxWidth, potentialWidth);
-    let h = w / aspectRatio;
-    h = Math.min(h, availableHeight);
+
+    // Use a portion of the window for the game, leaving space for other UI
+    const availableWidth = window.innerWidth; // Use 100% of width
+    const availableHeight = window.innerHeight; // Use 100% of height
+
+    let w, h;
+
+    // Determine the largest size that fits within the available space while maintaining aspect ratio
+    if ((availableWidth / availableHeight) > aspectRatio) {
+        // If the available space is wider than the aspect ratio, height is the limiting factor
+        h = availableHeight;
+        w = h * aspectRatio;
+    } else {
+        // If the available space is taller, width is the limiting factor
+        w = availableWidth;
+        h = w / aspectRatio;
+    }
 
     if (GameState.canvas) {
         GameState.canvas.style.width = `${w}px`;
         GameState.canvas.style.height = `${h}px`;
+    }
+
+    if (GameState.uiContainer) {
+        GameState.uiContainer.style.width = `${w}px`;
+        GameState.uiContainer.style.left = '50%';
+        GameState.uiContainer.style.transform = 'translateX(-50%)';
     }
 
     if (GameState.renderer && GameState.camera) {

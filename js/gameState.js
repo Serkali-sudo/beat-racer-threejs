@@ -43,7 +43,7 @@ export let currentDrillChaseDistance = 0; // Added for dynamic chase distance
 export let touchStartX = 0, touchStartY = 0, touchEndX = 0, touchEndY = 0;
 
 // --- DOM Elements (initialized in main.js or ui.js) ---
-export let canvas, scoreElement, boostMeterFillElement, messageBox, messageText, actionButton, perfectionPhaseElement, magnetTimerContainer, magnetTimerFill, magnetText, fpsDisplayElement;
+export let canvas, scoreElement, boostMeterFillElement, messageBox, messageText, actionButton, perfectionPhaseElement, magnetTimerContainer, magnetTimerFill, magnetText, fpsDisplayElement, uiContainer;
 
 export function setDomElements(elements) {
     canvas = elements.canvas;
@@ -57,6 +57,7 @@ export function setDomElements(elements) {
     magnetTimerFill = elements.magnetTimerFill;
     magnetText = elements.magnetText;
     fpsDisplayElement = elements.fpsDisplayElement;
+    uiContainer = elements.uiContainer;
 }
 
 // --- Game Timers ---
@@ -111,7 +112,8 @@ export function getGameState() {
         magnetActive,
         magnetTimer,
         magnetCollectables,
-        fpsDisplayElement
+        fpsDisplayElement,
+        uiContainer
     };
 }
 
@@ -205,6 +207,7 @@ export function setGameState(newState) {
     magnetTimer = newState.magnetTimer || 0;
     magnetCollectables = newState.magnetCollectables || [];
     fpsDisplayElement = newState.fpsDisplayElement || null;
+    uiContainer = newState.uiContainer || null;
 }
 
 export function resetGameTimers() {
